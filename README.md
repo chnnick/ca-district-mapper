@@ -111,7 +111,7 @@ The app runs at `http://localhost:8000`. Data is stored on your host machine und
 After first launch, load the BEF district data (required one-time setup — downloads ~4 ZIPs from CSDB, ~30 MB total):
 
 ```bash
-docker compose exec app python scripts/load_bef.py --approved-by "Your Name"
+docker compose exec app python scripts/load_bef.py
 ```
 
 This populates `data/bef/` and loads all active district lookup tables (CD, SD, AD, BOE). Re-run after a database reset to reload from already-downloaded files without re-downloading.
@@ -147,10 +147,10 @@ uvicorn src.api.app:create_app --factory --reload --host 0.0.0.0 --port 8000
 **2. Load BEF data** (one-time setup — downloads ~4 ZIPs from CSDB and populates district lookup tables):
 
 ```bash
-python scripts/load_bef.py --approved-by "Your Name"
+python scripts/load_bef.py
 ```
 
-This downloads CD, SD, AD, and BOE Block Equivalency Files to `data/bef/` and loads them into the database. Already-downloaded ZIPs are reused on subsequent runs; already-loaded versions (same hash) are skipped. Pass `--include-superseded` to also load the historical 2021 CD BEF for point-in-time queries. Pass `--dry-run` to preview without writing anything.
+This downloads CD, SD, AD, and BOE Block Equivalency Files to `data/bef/` and loads them into the database. Already-downloaded ZIPs are reused on subsequent runs; already-loaded versions (same hash) are skipped. Pass `--include-superseded` to also load the historical 2021 CD BEF for point-in-time queries. Pass `--dry-run` to preview without writing anything. Under Docker, this also runs automatically in the background on first startup.
 
 **3. Frontend dev server** (proxies `/api` to `localhost:8000`):
 
@@ -290,10 +290,10 @@ In all cases, BEF files in `data/bef/` are preserved — re-run the loader to re
 
 ```bash
 # Docker
-docker compose exec app python scripts/load_bef.py --approved-by "Your Name"
+docker compose exec app python scripts/load_bef.py
 
 # Without Docker
-python scripts/load_bef.py --approved-by "Your Name"
+python scripts/load_bef.py
 ```
 
 **Stuck job (409 on upload):** If the server was killed mid-job, a job row may be left in `geocoding` or `matching` status. The quickest fix is a full reset above. To clear only the stuck job without losing other data:

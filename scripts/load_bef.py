@@ -36,8 +36,8 @@ MIGRATIONS_DIR = PROJECT_ROOT / "db" / "migrations"
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--approved-by", required=True, metavar="NAME",
-                   help="Name of the person approving this BEF load (stored in bef_versions)")
+    p.add_argument("--approved-by", default=None, metavar="NAME",
+                   help="Name to store in bef_versions.approved_by (optional)")
     p.add_argument("--db", default=str(DEFAULT_DB), metavar="PATH",
                    help=f"Path to SQLite database (default: {DEFAULT_DB})")
     p.add_argument("--config", default=str(DEFAULT_CONFIG), metavar="PATH",

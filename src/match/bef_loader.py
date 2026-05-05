@@ -1,6 +1,7 @@
 import csv
 import hashlib
 import io
+import logging
 import sqlite3
 import zipfile
 from datetime import datetime, timezone
@@ -9,6 +10,8 @@ from pathlib import Path
 import requests
 
 from .bef_config import BefSource
+
+logger = logging.getLogger(__name__)
 
 _CHUNK_SIZE = 8_192
 _BATCH_SIZE = 10_000
@@ -66,7 +69,7 @@ def load_bef_version(
     source: BefSource,
     file_path: Path,
     file_hash: str,
-    approved_by: str,
+    approved_by: str | None = None,
 ) -> tuple[int, int]:
     """
     Extract BEF CSV from ZIP, bulk-load block rows into bef_blocks, register the
@@ -76,6 +79,18 @@ def load_bef_version(
     - This file_hash is already loaded for this source (duplicate guard).
     - The expected geoid_column or district_column are not found in any CSV in the ZIP.
     """
+    logger.info(
+        "load_bef_version: source=%s district_type=%s effective=%s approved_by=%s",
+        source.id, source.district_type, source.effective_date, approved_by,
+    )
+    if approved_by is None:
+        logger.warning(
+            "load_bef_version: approved_by is NULL for %s — "
+            "get_active_bef_version_id requires approved_by IS NOT NULL; "
+            "reports will return empty until this version is approved. "
+            "Re-run load_bef.py with --approved-by to fix.",
+            source.id,
+        )
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     existing = conn.execute(
@@ -127,10 +142,14 @@ def _load_blocks_from_zip(
         if not csv_names:
             raise ValueError(f"No CSV files found in {zip_path.name}")
 
+        logger.debug("_load_blocks_from_zip: CSV files in ZIP: %s", csv_names)
+
         if source.has_header:
             target = _find_target_csv_with_header(zf, csv_names, source.geoid_column, source.district_column)
         else:
             target = _find_single_csv(zf, csv_names, zip_path.name)
+
+        logger.info("_load_blocks_from_zip: reading %s from %s", target, zip_path.name)
 
         with zf.open(target) as raw:
             text = io.TextIOWrapper(raw, encoding="utf-8-sig")
@@ -140,6 +159,7 @@ def _load_blocks_from_zip(
             if source.has_header:
                 reader = csv.DictReader(text)
                 headers = reader.fieldnames or []
+                logger.debug("_load_blocks_from_zip: CSV headers: %s", headers)
                 for col in (source.geoid_column, source.district_column):
                     if col not in headers:
                         raise ValueError(
@@ -163,6 +183,7 @@ def _load_blocks_from_zip(
                         batch,
                     )
                     total += len(batch)
+                    logger.debug("_load_blocks_from_zip: inserted %d blocks so far (source=%s)", total, source.id)
                     batch = []
 
             if batch:
@@ -174,6 +195,7 @@ def _load_blocks_from_zip(
                 )
                 total += len(batch)
 
+    logger.info("_load_blocks_from_zip: finished source=%s version_id=%d total_blocks=%d", source.id, version_id, total)
     return total
 
 

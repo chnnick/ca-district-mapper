@@ -1,5 +1,8 @@
+import logging
 import sqlite3
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 
 def get_active_bef_version_id(
@@ -56,6 +59,7 @@ def run_assignment(
     for district_type in district_types:
         version_id = get_active_bef_version_id(conn, district_type, as_of_date)
         if version_id is None:
+            logger.warning("run_assignment: no active BEF for %s (as_of=%s) — skipping", district_type, as_of_date)
             summary[district_type] = {"assigned": 0, "no_active_bef": True}
             continue
 
@@ -97,6 +101,16 @@ def run_assignment(
             (district_type, version_id),
         ).fetchone()[0]
 
+        logger.info(
+            "run_assignment: %s  version_id=%d  assigned=%d  no_bef_match=%d  no_block_geoid=%d",
+            district_type, version_id, cur.rowcount, no_bef_match, no_block_geoid,
+        )
+        if cur.rowcount == 0:
+            logger.warning(
+                "run_assignment: 0 rows assigned for %s (version_id=%d) — "
+                "check that geocoded_records has block_geoids and bef_blocks has matching geoids",
+                district_type, version_id,
+            )
         summary[district_type] = {
             "bef_version_id": version_id,
             "assigned": cur.rowcount,
