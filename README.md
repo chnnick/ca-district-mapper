@@ -13,6 +13,9 @@ CSV upload → ingest + normalize → Census Geocoder (batch) → block GEOID �
 ```
 
 1. **Ingest** — CSV rows are validated, normalized (whitespace/case), SHA-256 hashed, and loaded into `raw_addresses`. Malformed rows are rejected with specific errors, never silently dropped.
+
+   > [!IMPORTANT]
+   > The currently accepted row headers are: `street`, `city`, `state`, `zip`, `country`, `id`.
 2. **Geocode** — Addresses are batched and sent to the [U.S. Census Geocoder](https://geocoding.geo.census.gov/geocoder/geographies/addressbatch). Matched records receive a 15-digit Census block GEOID. Misses are logged by hash only.
 3. **Match** — Block GEOIDs are joined against the active BEF version to produce `district_assignments`. No raw addresses leave the `raw_addresses` table.
 4. **Reports** — Aggregate constituent counts per district, with optional ZIP-level breakdown. Every report includes a methodology footer citing the geocoder and BEF version used.
