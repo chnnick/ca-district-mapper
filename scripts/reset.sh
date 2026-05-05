@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+cd "$(dirname "$0")/.."
 
 echo "This will stop the app and delete all data EXCEPT BEF files."
 read -p "Are you sure? (y/N): " confirm

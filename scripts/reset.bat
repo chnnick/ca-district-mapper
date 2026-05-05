@@ -1,4 +1,5 @@
 @echo off
+cd /d "%~dp0.."
 echo This will stop the app and delete all data EXCEPT BEF files.
 set /p confirm="Are you sure? (y/N): "
 if /i not "%confirm%"=="y" (

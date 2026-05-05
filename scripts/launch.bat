@@ -1,4 +1,5 @@
 @echo off
+cd /d "%~dp0.."
 docker info > nul 2>&1
 if errorlevel 1 (
     echo Docker is not running. Please open Docker Desktop and try again.
