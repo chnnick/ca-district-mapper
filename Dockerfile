@@ -16,6 +16,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src/ ./src/
 COPY db/ ./db/
 COPY config/ ./config/
+COPY scripts/ ./scripts/
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 
 COPY docker-entrypoint.sh /docker-entrypoint.sh
