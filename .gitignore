@@ -1,0 +1,35 @@
+# Raw address data — never commit
+data/raw/
+addresses_clean.csv
+
+# Database file — contains PII at rest
+data/*.db
+data/*.db-shm
+data/*.db-wal
+*.db
+
+# BEF zip archives — large binaries, re-downloadable
+data/bef/*.zip
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Frontend build artifacts
+frontend/node_modules/
+frontend/dist/
+
+# Editor
+.vscode/
+.idea/
+*.swp

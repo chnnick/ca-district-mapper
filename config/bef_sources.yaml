@@ -1,0 +1,80 @@
+# Block Equivalency File (BEF) sources
+# Source: California Statewide Database (CSDB), UC Berkeley
+#
+# Rules:
+# - Never hardcode these URLs in src/. Always load from this file.
+# - Verify URL reachability before each refresh attempt.
+# - Never delete a version. Append new entries; set expiration_date on superseded ones.
+# - Always save a local copy to data/bef/<local_filename> on download.
+#
+# geoid_column: name of the column in the BEF CSV containing the 15-digit 2020 Census
+#   block GEOID. Verify on first download — CSDB typically uses "GEOID20".
+# district_column: name of the column containing the district number. Verify on first
+#   download — CSDB typically uses the district type abbreviation (CD, SD, AD, BOE).
+
+bef_sources:
+
+  - id: ab604_cd
+    label: "Congressional Districts — AB 604 (current)"
+    district_type: CD
+    effective_date: "2026-01-01"
+    expiration_date: null
+    supersedes: 2021_cd
+    url: "https://statewidedatabase.org/pub/data/d25/AB604.zip"
+    local_filename: "ab604_cd_2026.zip"
+    has_header: false
+    geoid_column: "GEOID20"
+    district_column: "CD"
+    notes: "Effective Jan 2026 through 2030 elections per Prop 50 / AB 604. No header row — col 0 = GEOID20, col 1 = CD."
+
+  - id: 2021_cd
+    label: "Congressional Districts — 2021 CRC Final Maps (superseded)"
+    district_type: CD
+    effective_date: "2021-01-01"
+    expiration_date: "2025-12-31"
+    supersedes: null
+    url: "https://statewidedatabase.org/pub/data/D20/FINAL_MAPS/2021_CD_Final_equiv.zip"
+    local_filename: "2021_cd_final_equiv.zip"
+    has_header: false
+    geoid_column: "GEOID20"
+    district_column: "CD"
+    notes: "Superseded by AB 604 effective Jan 2026. Retain for historical point-in-time queries. No header row — col 0 = GEOID20, col 1 = CD."
+
+  - id: 2021_sd
+    label: "State Senate Districts — 2021 CRC Final Maps"
+    district_type: SD
+    effective_date: "2021-01-01"
+    expiration_date: null
+    supersedes: null
+    url: "https://statewidedatabase.org/pub/data/D20/FINAL_MAPS/2021_SD_Final_equiv.zip"
+    local_filename: "2021_sd_final_equiv.zip"
+    has_header: false
+    geoid_column: "GEOID20"
+    district_column: "SD"
+    notes: "No header row — col 0 = GEOID20, col 1 = SD."
+
+  - id: 2021_ad
+    label: "State Assembly Districts — 2021 CRC Final Maps"
+    district_type: AD
+    effective_date: "2021-01-01"
+    expiration_date: null
+    supersedes: null
+    url: "https://statewidedatabase.org/pub/data/D20/FINAL_MAPS/2021_AD_Final_equiv.zip"
+    local_filename: "2021_ad_final_equiv.zip"
+    has_header: false
+    geoid_column: "GEOID20"
+    district_column: "AD"
+    notes: "No header row — col 0 = GEOID20, col 1 = AD."
+
+  - id: 2021_boe
+    label: "Board of Equalization Districts — 2021 CRC Final Maps"
+    district_type: BOE
+    effective_date: "2021-01-01"
+    expiration_date: null
+    supersedes: null
+    url: "https://statewidedatabase.org/pub/data/D20/FINAL_MAPS/2021_BOE_Final_equiv.zip"
+    local_filename: "2021_boe_final_equiv.zip"
+    has_header: false
+    geoid_column: "GEOID20"
+    district_column: "BOE"
+    notes: "No header row — col 0 = GEOID20, col 1 = BOE."
