@@ -231,3 +231,19 @@ body,
   font-size: 12px;
   text-align: center;
 }
+
+/* District chart */
+.district-chart {
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.district-chart h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}

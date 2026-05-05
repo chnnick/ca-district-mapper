@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchMapPoints } from "./api/client";
+import DistrictChart from "./components/DistrictChart";
 import DistrictList from "./components/DistrictList";
 import MapView from "./components/MapView";
 import Sidebar from "./components/Sidebar";
@@ -61,6 +62,7 @@ export default function App() {
             districtNumber={selectedDistrict}
           />
         )}
+        <DistrictChart districtType={selectedType} refreshKey={refreshKey} />
       </Sidebar>
       <div className="map-container">
         <MapView points={mapPoints} />
