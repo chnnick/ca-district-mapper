@@ -6,6 +6,22 @@ Upload a CSV of addresses → the pipeline geocodes them via the U.S. Census Geo
 
 ---
 
+## Quick start
+
+1. **Install [Docker Desktop](https://www.docker.com/products/docker-desktop/)** (one-time setup). Open it and wait for the whale icon in your menu bar / taskbar to stop animating.
+2. **Download the latest release zip** from the [Releases page](../../releases/latest) and unzip it.
+3. **Launch the app:**
+   - **macOS:** Double-click `Launch California District Mapper.command`
+   - **Windows:** Double-click `Launch California District Mapper.bat`
+
+Your browser opens automatically at `http://localhost:8000` once the app is ready. The first launch downloads district data and may take a few minutes — this is normal.
+
+To stop the app, double-click `Stop California District Mapper.command` (macOS) or `Stop California District Mapper.bat` (Windows).
+
+Your uploaded CSVs, generated reports, and the database are stored in the `data/`, `logs/`, and `reports/` folders next to the launcher. They persist between restarts.
+
+---
+
 ## How it works
 
 ```
