@@ -1,6 +1,8 @@
 services:
   app:
-    build: .
+    image: ghcr.io/chnnick/california-district-mapper:latest
+    build:
+      context: .
     ports:
       - "8000:8000"
     volumes:
