@@ -20,9 +20,14 @@ function FitBounds({ points }: FitBoundsProps) {
 
 interface Props {
   points: MapPoint[];
+  districtSelected?: boolean;
+  personPoint?: MapPoint | null;
 }
 
-export default function MapView({ points }: Props) {
+export default function MapView({ points, districtSelected = false, personPoint = null }: Props) {
+  const dotColor = districtSelected ? "#e53935" : "#1a73e8";
+  const allPoints = personPoint ? [...points, personPoint] : points;
+
   return (
     <MapContainer
       center={[37.5, -119.5]}
@@ -38,10 +43,17 @@ export default function MapView({ points }: Props) {
           key={i}
           center={[p.lat, p.lng]}
           radius={5}
-          pathOptions={{ color: "#1a73e8", fillColor: "#1a73e8", fillOpacity: 0.7, weight: 1 }}
+          pathOptions={{ color: dotColor, fillColor: dotColor, fillOpacity: 0.7, weight: 1 }}
         />
       ))}
-      <FitBounds points={points} />
+      {personPoint && (
+        <CircleMarker
+          center={[personPoint.lat, personPoint.lng]}
+          radius={7}
+          pathOptions={{ color: "#2e7d32", fillColor: "#43a047", fillOpacity: 0.9, weight: 2 }}
+        />
+      )}
+      <FitBounds points={allPoints} />
     </MapContainer>
   );
 }

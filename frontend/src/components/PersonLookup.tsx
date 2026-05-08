@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { fetchPersonDistricts } from "../api/client";
-import type { DistrictType, PersonDistricts } from "../types";
+import type { DistrictType, MapPoint, PersonDistricts } from "../types";
 
 const DISTRICT_ORDER: DistrictType[] = ["CD", "SD", "AD", "BOE"];
 
-export default function PersonLookup() {
+interface Props {
+  onPersonLookup?: (point: MapPoint | null) => void;
+}
+
+export default function PersonLookup({ onPersonLookup }: Props) {
   const [id, setId] = useState("");
   const [result, setResult] = useState<PersonDistricts | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -21,8 +25,14 @@ export default function PersonLookup() {
     try {
       const r = await fetchPersonDistricts(trimmed);
       setResult(r);
+      if (r.lat !== undefined && r.lng !== undefined) {
+        onPersonLookup?.({ lat: r.lat, lng: r.lng });
+      } else {
+        onPersonLookup?.(null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Lookup failed");
+      onPersonLookup?.(null);
     } finally {
       setLoading(false);
     }

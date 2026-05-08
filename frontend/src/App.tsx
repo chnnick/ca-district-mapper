@@ -13,6 +13,7 @@ export default function App() {
   const [selectedType, setSelectedType] = useState<DistrictType>("CD");
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
   const [mapPoints, setMapPoints] = useState<MapPoint[]>([]);
+  const [personPoint, setPersonPoint] = useState<MapPoint | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const loadPoints = useCallback(async () => {
@@ -44,13 +45,19 @@ export default function App() {
   const handleSelectType = (type: DistrictType) => {
     setSelectedType(type);
     setSelectedDistrict(null);
+    setPersonPoint(null);
+  };
+
+  const handlePersonLookup = (point: MapPoint | null) => {
+    setPersonPoint(point);
+    setSelectedDistrict(null);
   };
 
   return (
     <div className="app">
       <Sidebar>
         <UploadPanel onUploadDone={handleUploadDone} />
-        <PersonLookup />
+        <PersonLookup onPersonLookup={handlePersonLookup} />
         <DistrictList
           selectedType={selectedType}
           selectedDistrict={selectedDistrict}
@@ -67,7 +74,7 @@ export default function App() {
         <DistrictChart districtType={selectedType} refreshKey={refreshKey} />
       </Sidebar>
       <div className="map-container">
-        <MapView points={mapPoints} />
+        <MapView points={mapPoints} districtSelected={selectedDistrict !== null} personPoint={personPoint} />
       </div>
     </div>
   );
