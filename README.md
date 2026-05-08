@@ -1,4 +1,4 @@
-# cal-district-mapper
+# California District Mapper
 
 Batch pipeline that maps California constituent addresses to state and federal legislative districts (CD, SD, AD, BOE) for use in constituent reporting to elected officials.
 
