@@ -34,15 +34,18 @@ export default function PersonLookup() {
 
   return (
     <div className="upload-panel">
-      <h3>Look up person</h3>
+      <h3>Look Up By ID</h3>
       <input
         type="text"
-        placeholder="Enter person id"
+        placeholder="Enter person's id to query for their districts"
         value={id}
         onChange={(e) => setId(e.target.value)}
         onKeyDown={handleKeyDown}
       />
-      <button onClick={() => void handleLookup()} disabled={!id.trim() || loading}>
+      <button
+        onClick={() => void handleLookup()}
+        disabled={!id.trim() || loading}
+      >
         {loading ? "Looking up…" : "Look up"}
       </button>
 
@@ -55,9 +58,7 @@ export default function PersonLookup() {
       )}
 
       {result?.status === "not_geocoded" && (
-        <div className="job-status">
-          Address found but not yet geocoded.
-        </div>
+        <div className="job-status">Address found but not yet geocoded.</div>
       )}
 
       {result && (result.status === "ok" || result.status === "partial") && (
