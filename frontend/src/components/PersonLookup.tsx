@@ -42,11 +42,22 @@ export default function PersonLookup({ onPersonLookup }: Props) {
     if (e.key === "Enter") void handleLookup();
   };
 
+  const handleCancel = () => {
+    setId("");
+    setResult(null);
+    setError(null);
+    setLookedUpId(null);
+    onPersonLookup?.(null);
+  };
+
+  const hasLookup = result !== null || error !== null;
+
   return (
     <div className="upload-panel">
       <h3>Look Up By ID</h3>
       <input
         type="text"
+        name="personId"
         placeholder="Enter person's id to query for their districts"
         value={id}
         onChange={(e) => setId(e.target.value)}
@@ -58,6 +69,15 @@ export default function PersonLookup({ onPersonLookup }: Props) {
       >
         {loading ? "Looking up…" : "Look up"}
       </button>
+      {hasLookup && (
+        <button
+          style={{ backgroundColor: "red", color: "white" }}
+          onClick={handleCancel}
+          disabled={loading}
+        >
+          Cancel
+        </button>
+      )}
 
       {error && (
         <div className="job-status failed">
