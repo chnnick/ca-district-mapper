@@ -1,4 +1,4 @@
-# cal-district-mapper
+# California District Mapper
 
 Batch pipeline that maps California constituent addresses to state and federal legislative districts (CD, SD, AD, BOE) for use in constituent reporting to elected officials.
 
@@ -30,9 +30,12 @@ CSV upload → ingest + normalize → Census Geocoder (batch) → block GEOID �
 
 1. **Ingest** — CSV rows are validated, normalized (whitespace/case), SHA-256 hashed, and loaded into `raw_addresses`. Malformed rows are rejected with specific errors, never silently dropped.
 
-   > [!IMPORTANT]
-   > The currently accepted row headers are: `street`, `city`, `state`, `zip`, `country`, `id`.
-   > Remove all empty rows at bottom prior to submitting data
+> [!WARNING]
+> The currently accepted row headers are: `street`, `city`, `state`, `zip`, `country`, `id`.
+
+> [!WARNING]
+> Remove all empty rows at bottom prior to submitting data
+
 2. **Geocode** — Addresses are batched and sent to the [U.S. Census Geocoder](https://geocoding.geo.census.gov/geocoder/geographies/addressbatch). Matched records receive a 15-digit Census block GEOID. Misses are logged by hash only.
 3. **Match** — Block GEOIDs are joined against the active BEF version to produce `district_assignments`. No raw addresses leave the `raw_addresses` table.
 4. **Reports** — Aggregate constituent counts per district, with optional ZIP-level breakdown. Every report includes a methodology footer citing the geocoder and BEF version used.
@@ -49,49 +52,6 @@ CSV upload → ingest + normalize → Census Geocoder (batch) → block GEOID �
 | BOE  | CA Board of Equalization Districts |
 
 County and municipal districts are out of scope for v1.
-
----
-
-## Stack
-
-- **Backend** — Python, FastAPI, SQLite (`data/district_mapper.db`)
-- **Frontend** — React 18, TypeScript (strict), Vite, react-leaflet
-- **Geocoder** — U.S. Census Geocoder only (no commercial APIs)
-- **District data** — California Statewide Database BEF (Block Equivalency Files)
-- **No ORM** — raw `sqlite3` with parameterized queries throughout
-
----
-
-## Project layout
-
-```
-cal-district-mapper/
-├── src/
-│   ├── api/               # FastAPI app, routes, deps
-│   │   └── routes/        # uploads, jobs, reports, map
-│   ├── ingest/            # CSV validation, normalization, loader
-│   ├── geocode/           # Census API client, response parser, runner
-│   ├── match/             # BEF config, loader, district assigner
-│   ├── reports/           # Query functions and CSV writers
-│   ├── guards/            # PII enforcement (blocks address data in output)
-│   └── db.py              # Connection factory + migration runner
-├── frontend/
-│   └── src/
-│       ├── api/client.ts  # Typed fetch wrappers
-│       ├── components/    # UploadPanel, DistrictList, StatsPanel, MapView
-│       ├── types.ts        # Shared TypeScript types
-│       └── App.tsx
-├── db/
-│   └── migrations/        # Versioned SQL migration scripts
-├── config/
-│   ├── bef_sources.yaml   # BEF source URLs and version metadata
-│   └── settings.yaml      # Retention period, batch sizes (optional)
-├── data/
-│   ├── raw/               # Uploaded CSVs (gitignored)
-│   └── bef/               # Downloaded BEF ZIP archives (gitignored)
-├── tests/
-└── reports/               # Generated CSV reports (gitignored)
-```
 
 ---
 
@@ -215,35 +175,6 @@ Jobs are serialized — only one may geocode/match at a time. A 409 is returned 
 
 ---
 
-## Database schema
-
-| Table | Contents |
-|-------|----------|
-| `raw_addresses` | Raw PII — street, city, state, zip. Purged 90 days after geocoding. |
-| `geocoded_records` | lat, lng, block_geoid, zip. Retained indefinitely. Join key: `address_hash`. |
-| `bef_versions` | BEF version registry. Append-only; versions are never deleted. |
-| `bef_blocks` | GEOID → district number mapping, versioned by `bef_version_id`. |
-| `district_assignments` | Final mapping of `address_hash` to district. No raw addresses. |
-| `geocode_misses` | Hashed-address audit log for Census non-matches. |
-| `jobs` | Pipeline job tracking with JSON summaries per stage. |
-
-Schema is managed via numbered migration scripts in `db/migrations/`. New migrations are applied automatically on startup.
-
----
-
-## PII controls
-
-Raw addresses are treated as PII and are structurally isolated:
-
-- **One table only** — `raw_addresses` is the only place raw address fields (street, city, state, zip) are stored.
-- **Hash-based joins** — every other table references `address_hash` (SHA-256 of normalized `street|city|state|zip`).
-- **No addresses in output** — `src/guards/pii_guard.py` raises an error if CSV output to `reports/`, `logs/`, or `docs/` contains address-like column names.
-- **90-day purge** — `retention_purge_after` is set on each raw address row; a purge job removes raw address fields after geocoding is complete.
-- **Hashed logs** — geocode misses and audit events are logged by hash only.
-- **Encryption at rest** — handled at the OS/volume level (FileVault on macOS, LUKS/KMS in production). The application does not manage encryption keys.
-
----
-
 ## BEF management
 
 Block Equivalency Files define which Census blocks belong to each district. They change after redistricting.
@@ -332,10 +263,72 @@ pytest tests/
 
 ---
 
-## Methodology footer
+## Stack
 
-Every generated report includes:
+- **Backend** — Python, FastAPI, SQLite (`data/district_mapper.db`)
+- **Frontend** — React 18, TypeScript (strict), Vite, react-leaflet
+- **Geocoder** — U.S. Census Geocoder only (no commercial APIs)
+- **District data** — California Statewide Database BEF (Block Equivalency Files)
+- **No ORM** — raw `sqlite3` with parameterized queries throughout
 
-> Addresses geocoded via U.S. Census Geocoder; district assignments from California Statewide Database Block Equivalency Files ([BEF name] effective [date]).
+---
 
-This requirement is enforced in `src/reports/queries.py::get_methodology_lines()`.
+## Project layout
+
+```
+cal-district-mapper/
+├── src/
+│   ├── api/               # FastAPI app, routes, deps
+│   │   └── routes/        # uploads, jobs, reports, map
+│   ├── ingest/            # CSV validation, normalization, loader
+│   ├── geocode/           # Census API client, response parser, runner
+│   ├── match/             # BEF config, loader, district assigner
+│   ├── reports/           # Query functions and CSV writers
+│   ├── guards/            # PII enforcement (blocks address data in output)
+│   └── db.py              # Connection factory + migration runner
+├── frontend/
+│   └── src/
+│       ├── api/client.ts  # Typed fetch wrappers
+│       ├── components/    # UploadPanel, DistrictList, StatsPanel, MapView
+│       ├── types.ts        # Shared TypeScript types
+│       └── App.tsx
+├── db/
+│   └── migrations/        # Versioned SQL migration scripts
+├── config/
+│   ├── bef_sources.yaml   # BEF source URLs and version metadata
+│   └── settings.yaml      # Retention period, batch sizes (optional)
+├── data/
+│   ├── raw/               # Uploaded CSVs (gitignored)
+│   └── bef/               # Downloaded BEF ZIP archives (gitignored)
+├── tests/
+└── reports/               # Generated CSV reports (gitignored)
+```
+
+---
+
+## Database schema
+
+| Table | Contents |
+|-------|----------|
+| `raw_addresses` | Raw PII — street, city, state, zip. Purged 90 days after geocoding. |
+| `geocoded_records` | lat, lng, block_geoid, zip. Retained indefinitely. Join key: `address_hash`. |
+| `bef_versions` | BEF version registry. Append-only; versions are never deleted. |
+| `bef_blocks` | GEOID → district number mapping, versioned by `bef_version_id`. |
+| `district_assignments` | Final mapping of `address_hash` to district. No raw addresses. |
+| `geocode_misses` | Hashed-address audit log for Census non-matches. |
+| `jobs` | Pipeline job tracking with JSON summaries per stage. |
+
+Schema is managed via numbered migration scripts in `db/migrations/`. New migrations are applied automatically on startup.
+
+---
+
+## PII controls
+
+Raw addresses are treated as PII and are structurally isolated:
+
+- **One table only** — `raw_addresses` is the only place raw address fields (street, city, state, zip) are stored.
+- **Hash-based joins** — every other table references `address_hash` (SHA-256 of normalized `street|city|state|zip`).
+- **No addresses in output** — `src/guards/pii_guard.py` raises an error if CSV output to `reports/`, `logs/`, or `docs/` contains address-like column names.
+- **90-day purge** — `retention_purge_after` is set on each raw address row; a purge job removes raw address fields after geocoding is complete.
+- **Hashed logs** — geocode misses and audit events are logged by hash only.
+- **Encryption at rest** — handled at the OS/volume level (FileVault on macOS, LUKS/KMS in production). The application does not manage encryption keys.
