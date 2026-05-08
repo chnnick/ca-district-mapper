@@ -96,7 +96,7 @@ def db_with_assignments(tmp_path, db):
         id="test_cd", label="Test CD", district_type="CD",
         effective_date="2026-01-01", expiration_date=None, supersedes=None,
         url="https://example.com/test.zip", local_filename="test_cd.zip",
-        geoid_column="GEOID20", district_column="CD",
+        geoid_column="GEOID20", district_column="CD", has_header=True,
     )
     load_bef_version(db, source, zip_path, file_hash, "testuser")
     run_assignment(db, district_types=["CD"])

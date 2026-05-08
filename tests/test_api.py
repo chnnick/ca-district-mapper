@@ -78,7 +78,7 @@ def client_with_data(tmp_path):
         id="test_cd", label="Test CD", district_type="CD",
         effective_date="2026-01-01", expiration_date=None, supersedes=None,
         url="https://example.com/test.zip", local_filename="test_cd.zip",
-        geoid_column="GEOID20", district_column="CD",
+        geoid_column="GEOID20", district_column="CD", has_header=True,
     )
     load_bef_version(conn, source, zip_path, hash_file(zip_path), "testuser")
     run_assignment(conn, district_types=["CD"])
@@ -327,3 +327,52 @@ def test_map_points_filtered_empty(client_with_data):
     resp = client_with_data.get("/api/map/points?district_type=CD&district_number=99")
     assert resp.status_code == 200
     assert resp.json() == []
+
+
+# ── GET /people/{id}/districts ────────────────────────────────────────────────
+
+_PII_FIELDS = ("street", "city", "state", "zip")
+
+
+def test_person_lookup_404_for_unknown_id(client_with_data):
+    assert client_with_data.get("/api/people/nope/districts").status_code == 404
+
+
+def test_person_lookup_returns_districts_and_coords(client_with_data):
+    resp = client_with_data.get("/api/people/1/districts")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["id"] == "1"
+    assert data["status"] in ("ok", "partial")
+    assert data["districts"]["CD"] == "13"
+    assert data["lat"] == pytest.approx(37.80)
+    assert data["lng"] == pytest.approx(-122.27)
+
+
+def test_person_lookup_response_excludes_pii(client_with_data):
+    resp = client_with_data.get("/api/people/1/districts")
+    body = resp.text.lower()
+    for field in _PII_FIELDS:
+        assert f'"{field}"' not in body
+    for addr in ("123 main", "oakland"):
+        assert addr not in body
+
+
+def test_person_lookup_not_geocoded_when_no_geocode_record(client_with_data, tmp_path):
+    import sqlite3
+    db_path = client_with_data.app.state.db_path
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        "INSERT INTO raw_addresses (id, address_hash, street, city, state, zip,"
+        " source_file, uploaded_at, retention_purge_after) VALUES"
+        " ('99', 'hash_no_geo', '999 NEW ST', 'OAKLAND', 'CA', '94601', 'test.csv',"
+        " '2026-04-30T00:00:00Z', '2026-07-29T00:00:00Z')"
+    )
+    conn.commit()
+    conn.close()
+
+    resp = client_with_data.get("/api/people/99/districts")
+    assert resp.status_code == 200
+    assert resp.json() == {"id": "99", "status": "not_geocoded"}
+
+

@@ -4,7 +4,12 @@ from pathlib import Path
 import pytest
 
 from src.guards.pii_guard import check_csv_columns
-from src.reports.queries import get_district_rollup, get_legislator_zip_breakdown, get_methodology_lines
+from src.reports.queries import (
+    get_district_rollup,
+    get_districts_for_person,
+    get_legislator_zip_breakdown,
+    get_methodology_lines,
+)
 from src.reports.writer import write_all_legislator_reports, write_legislator_report, write_rollup_report
 
 
@@ -102,6 +107,78 @@ def test_get_methodology_lines_contains_bef_label(db_with_assignments):
 def test_get_methodology_lines_omits_missing_district_types(db_with_assignments):
     lines = get_methodology_lines(db_with_assignments, ["SD"])  # no SD BEF loaded
     assert not any("SD" in l for l in lines[1:])  # first line is geocoder
+
+
+# ── person lookup ────────────────────────────────────────────────────────────
+
+_PII_FIELDS = ("street", "city", "state", "zip")
+
+
+def test_get_districts_for_person_unknown_id_returns_none(db_with_assignments):
+    assert get_districts_for_person(db_with_assignments, "does-not-exist") is None
+
+
+def test_get_districts_for_person_ok_returns_full_payload(db_with_assignments):
+    # id "1" → hash_aaa → CD 13 (only CD BEF is loaded in the fixture)
+    result = get_districts_for_person(db_with_assignments, "1")
+    assert result is not None
+    assert result["id"] == "1"
+    assert result["lat"] == pytest.approx(37.80)
+    assert result["lng"] == pytest.approx(-122.27)
+    # Only CD BEF is loaded → status is "partial", and CD is present
+    assert result["status"] == "partial"
+    assert result["districts"] == {"CD": "13"}
+
+
+def test_get_districts_for_person_not_geocoded(db_with_assignments):
+    # Insert a raw_addresses row with no matching geocoded_records entry.
+    db_with_assignments.execute(
+        "INSERT INTO raw_addresses (id, address_hash, street, city, state, zip,"
+        " source_file, uploaded_at, retention_purge_after) VALUES"
+        " ('99', 'hash_no_geo', '999 NEW ST', 'OAKLAND', 'CA', '94601', 'test.csv',"
+        " '2026-04-30T00:00:00Z', '2026-07-29T00:00:00Z')"
+    )
+    db_with_assignments.commit()
+
+    result = get_districts_for_person(db_with_assignments, "99")
+    assert result == {"id": "99", "status": "not_geocoded"}
+
+
+def test_get_districts_for_person_not_geocoded_when_block_geoid_null(db_with_assignments):
+    # Address ingested + geocoded but with no block_geoid (e.g., Census miss).
+    db_with_assignments.execute(
+        "INSERT INTO raw_addresses (id, address_hash, street, city, state, zip,"
+        " source_file, uploaded_at, retention_purge_after) VALUES"
+        " ('77', 'hash_no_block', '777 EDGE ST', 'OAKLAND', 'CA', '94601', 'test.csv',"
+        " '2026-04-30T00:00:00Z', '2026-07-29T00:00:00Z')"
+    )
+    db_with_assignments.execute(
+        "INSERT INTO geocoded_records (address_hash, lat, lng, block_geoid, zip,"
+        " geocoder_source, geocoder_benchmark, geocoder_vintage, match_score,"
+        " match_type, geocoded_at) VALUES ('hash_no_block', NULL, NULL, NULL, '94601',"
+        " 'census', 'Public_AR_Current', 'Current_Current', 'No_Match', 'No_Match',"
+        " '2026-04-30T00:00:00Z')"
+    )
+    db_with_assignments.commit()
+
+    result = get_districts_for_person(db_with_assignments, "77")
+    assert result == {"id": "77", "status": "not_geocoded"}
+
+
+def test_get_districts_for_person_excludes_pii(db_with_assignments):
+    result = get_districts_for_person(db_with_assignments, "1")
+    assert result is not None
+    for field in _PII_FIELDS:
+        assert field not in result
+
+
+def test_get_districts_for_person_partial_omits_unloaded_types(db_with_assignments):
+    # Only CD BEF is loaded in the fixture; AD/SD/BOE assignments don't exist.
+    result = get_districts_for_person(db_with_assignments, "1")
+    assert result is not None
+    assert "CD" in result["districts"]
+    for missing in ("SD", "AD", "BOE"):
+        assert missing not in result["districts"]
 
 
 # ── writer ────────────────────────────────────────────────────────────────────
