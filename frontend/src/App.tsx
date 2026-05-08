@@ -3,6 +3,7 @@ import { fetchMapPoints } from "./api/client";
 import DistrictChart from "./components/DistrictChart";
 import DistrictList from "./components/DistrictList";
 import MapView from "./components/MapView";
+import PersonLookup from "./components/PersonLookup";
 import Sidebar from "./components/Sidebar";
 import StatsPanel from "./components/StatsPanel";
 import UploadPanel from "./components/UploadPanel";
@@ -49,6 +50,7 @@ export default function App() {
     <div className="app">
       <Sidebar>
         <UploadPanel onUploadDone={handleUploadDone} />
+        <PersonLookup />
         <DistrictList
           selectedType={selectedType}
           selectedDistrict={selectedDistrict}

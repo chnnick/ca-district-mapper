@@ -79,6 +79,47 @@ body,
   font-size: 13px;
 }
 
+.upload-panel input[type="text"] {
+  font-size: 13px;
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.person-districts ul {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.person-districts li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  padding: 4px 6px;
+  background: #f8f9fc;
+  border-radius: 4px;
+}
+
+.person-districts .district-label {
+  color: #777;
+  font-weight: 500;
+}
+
+.person-districts .district-value {
+  font-weight: 600;
+}
+
+.person-coords {
+  font-size: 11px;
+  color: #999;
+  margin-top: 6px;
+  font-family: monospace;
+}
+
 .upload-panel button {
   padding: 6px 12px;
   background: #1a73e8;

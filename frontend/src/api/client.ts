@@ -4,6 +4,7 @@ import type {
   DistrictType,
   Job,
   MapPoint,
+  PersonDistricts,
   UploadResponse,
 } from "../types";
 
@@ -57,4 +58,10 @@ export async function uploadCSV(file: File): Promise<UploadResponse> {
 
 export function fetchJob(jobId: string): Promise<Job> {
   return apiFetch<Job>(`/jobs/${jobId}`);
+}
+
+export function fetchPersonDistricts(id: string): Promise<PersonDistricts> {
+  return apiFetch<PersonDistricts>(
+    `/people/${encodeURIComponent(id)}/districts`,
+  );
 }

@@ -56,3 +56,11 @@ export interface DistrictStats {
   total: number;
   zip_breakdown: ZipRow[];
 }
+
+export interface PersonDistricts {
+  id: string;
+  lat?: number;
+  lng?: number;
+  status: "ok" | "partial" | "not_geocoded";
+  districts?: Partial<Record<DistrictType, string>>;
+}
