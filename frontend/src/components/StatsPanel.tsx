@@ -31,22 +31,24 @@ export default function StatsPanel({ districtType, districtNumber }: Props) {
         {stats.total.toLocaleString()}{" "}
         <span>constituents</span>
       </div>
-      <table className="zip-table">
-        <thead>
-          <tr>
-            <th>ZIP</th>
-            <th>Count</th>
-          </tr>
-        </thead>
-        <tbody>
-          {stats.zip_breakdown.map((row) => (
-            <tr key={row.zip}>
-              <td>{row.zip}</td>
-              <td>{row.constituent_count.toLocaleString()}</td>
+      <div className="zip-table-wrap">
+        <table className="zip-table">
+          <thead>
+            <tr>
+              <th>ZIP</th>
+              <th>Count</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {stats.zip_breakdown.map((row) => (
+              <tr key={row.zip}>
+                <td>{row.zip}</td>
+                <td>{row.constituent_count.toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
