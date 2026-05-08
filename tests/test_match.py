@@ -50,6 +50,7 @@ def make_source(
         supersedes=None,
         url="https://example.com/test.zip",
         local_filename="test.zip",
+        has_header=True,
         geoid_column=geoid_column,
         district_column=district_column,
     )
@@ -234,9 +235,36 @@ def test_get_active_bef_version_id_point_in_time_on_effective(db_with_bef):
 def test_run_assignment_assigns_known_geoids(db_with_bef):
     summary = run_assignment(db_with_bef, district_types=["CD"])
 
-    assert summary["CD"]["assigned"] == 2  # hash_aaa and hash_bbb have GEOIDs in BEF
+    assert summary["by_type"]["CD"]["assigned"] == 2  # hash_aaa and hash_bbb have GEOIDs in BEF
     rows = db_with_bef.execute("SELECT COUNT(*) FROM district_assignments").fetchone()[0]
     assert rows == 2
+
+
+def test_run_assignment_top_level_assigned_counts_distinct_addresses(db_with_bef):
+    summary = run_assignment(db_with_bef, district_types=["CD"])
+    # 2 distinct address_hashes got assignments (hash_aaa, hash_bbb)
+    assert summary["assigned"] == 2
+
+
+def test_run_assignment_top_level_assigned_does_not_double_count_across_types(db_with_bef, tmp_path):
+    # Add an SD BEF covering the same blocks; the same 2 addresses get SD assignments too.
+    source = make_source(district_type="SD", district_column="SD", effective_date="2026-01-01")
+    zip_path, file_hash = make_bef_zip(
+        tmp_path, "test_sd.zip",
+        [
+            {"GEOID20": "060014001001001", "SD": "9"},
+            {"GEOID20": "060750123002001", "SD": "11"},
+        ],
+        district_col="SD",
+    )
+    load_bef_version(db_with_bef, source, zip_path, file_hash, "testuser")
+    db_with_bef.commit()
+
+    summary = run_assignment(db_with_bef, district_types=["CD", "SD"])
+    # 4 rows in district_assignments (2 addresses × 2 types) but only 2 distinct addresses.
+    assert summary["assigned"] == 2
+    assert summary["by_type"]["CD"]["assigned"] == 2
+    assert summary["by_type"]["SD"]["assigned"] == 2
 
 
 def test_run_assignment_correct_district_numbers(db_with_bef):
@@ -272,8 +300,8 @@ def test_run_assignment_is_idempotent(db_with_bef):
 
 def test_run_assignment_no_active_bef_skips_gracefully(db_with_bef):
     summary = run_assignment(db_with_bef, district_types=["SD"])
-    assert summary["SD"]["no_active_bef"] is True
-    assert summary["SD"]["assigned"] == 0
+    assert summary["by_type"]["SD"]["no_active_bef"] is True
+    assert summary["by_type"]["SD"]["assigned"] == 0
 
 
 def test_run_assignment_reports_no_bef_match_count(db_with_bef):
@@ -284,4 +312,4 @@ def test_run_assignment_reports_no_bef_match_count(db_with_bef):
     db_with_bef.commit()
 
     summary = run_assignment(db_with_bef, district_types=["CD"])
-    assert summary["CD"]["no_bef_match"] == 1
+    assert summary["by_type"]["CD"]["no_bef_match"] == 1

@@ -44,7 +44,12 @@ def run_assignment(
     write new rows to district_assignments.
 
     Existing assignments are not overwritten (INSERT OR IGNORE).
-    Returns a per-district-type summary dict.
+
+    Returns a summary dict:
+        {
+            "assigned":  int,   # distinct address_hashes with ≥1 assignment after this run
+            "by_type":   { "<district_type>": { "assigned": int, ... }, ... },
+        }
     """
     if district_types is None:
         district_types = ["CD", "SD", "AD", "BOE"]
@@ -54,13 +59,13 @@ def run_assignment(
         "SELECT COUNT(*) FROM geocoded_records WHERE block_geoid IS NULL"
     ).fetchone()[0]
 
-    summary: dict = {}
+    by_type: dict = {}
 
     for district_type in district_types:
         version_id = get_active_bef_version_id(conn, district_type, as_of_date)
         if version_id is None:
             logger.warning("run_assignment: no active BEF for %s (as_of=%s) — skipping", district_type, as_of_date)
-            summary[district_type] = {"assigned": 0, "no_active_bef": True}
+            by_type[district_type] = {"assigned": 0, "no_active_bef": True}
             continue
 
         cur = conn.execute(
@@ -111,11 +116,18 @@ def run_assignment(
                 "check that geocoded_records has block_geoids and bef_blocks has matching geoids",
                 district_type, version_id,
             )
-        summary[district_type] = {
+        by_type[district_type] = {
             "bef_version_id": version_id,
             "assigned": cur.rowcount,
             "no_bef_match": no_bef_match,
             "no_block_geoid": no_block_geoid,
         }
 
-    return summary
+    # Count unique addresses with any assignment. An address can have up to 4 rows
+    # (one per district type), so DISTINCT collapses them so each address counts once.
+    # fetchone() grabs the single result row; [0] pulls the count out of it.
+    total_assigned = conn.execute(
+        "SELECT COUNT(DISTINCT address_hash) FROM district_assignments"
+    ).fetchone()[0]
+
+    return {"assigned": total_assigned, "by_type": by_type}

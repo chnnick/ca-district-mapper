@@ -259,7 +259,7 @@ sqlite3 data/district_mapper.db \
 pytest tests/
 ```
 
-113 tests covering ingest, geocoder parsing, BEF loading, district assignment, report generation, and all API endpoints.
+125 tests covering ingest, geocoder parsing, BEF loading, district assignment, report generation, and all API endpoints.
 
 ---
 

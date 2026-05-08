@@ -23,8 +23,17 @@ export interface GeocodeSummary {
   missed: number;
 }
 
+export interface MatchByType {
+  assigned: number;
+  bef_version_id?: number;
+  no_bef_match?: number;
+  no_block_geoid?: number;
+  no_active_bef?: boolean;
+}
+
 export interface MatchSummary {
   assigned: number;
+  by_type: Partial<Record<DistrictType, MatchByType>>;
 }
 
 export interface Job {
