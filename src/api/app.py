@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from src.api.routes import jobs, map, reports, uploads
+from src.api.routes import jobs, map, people, reports, uploads
 from src.db import apply_migrations, get_connection
 
 logger = logging.getLogger(__name__)
@@ -144,6 +144,7 @@ def create_app(
     app.include_router(jobs.router, prefix="/api")
     app.include_router(reports.router, prefix="/api")
     app.include_router(map.router, prefix="/api")
+    app.include_router(people.router, prefix="/api")
 
     frontend_dist = Path(__file__).parent.parent.parent / "frontend" / "dist"
     if frontend_dist.exists():

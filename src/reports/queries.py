@@ -76,6 +76,71 @@ def get_legislator_zip_breakdown(
     return [dict(r) for r in rows]
 
 
+def get_districts_for_person(
+    conn: sqlite3.Connection,
+    person_id: str,
+    as_of_date: str | None = None,
+) -> dict | None:
+    """
+    Look up the four district assignments (CD, SD, AD, BOE) for a single person
+    by their source-CSV id.
+
+    Returns:
+      None                                          — id not found in raw_addresses
+      {id, status: "not_geocoded"}                  — id known but no geocode yet
+      {id, lat, lng, status: "ok",       districts} — all four districts resolved
+      {id, lat, lng, status: "partial",  districts} — some district types missing
+        (e.g. only some BEFs are loaded; districts contains only the types we have)
+
+    Never returns raw address fields (street/city/state/zip).
+    """
+    if as_of_date is None:
+        as_of_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    row = conn.execute(
+        """
+        SELECT ra.id, ra.address_hash, gr.lat, gr.lng, gr.block_geoid
+        FROM raw_addresses ra
+        LEFT JOIN geocoded_records gr ON gr.address_hash = ra.address_hash
+        WHERE ra.id = ?
+        """,
+        (person_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    if row["block_geoid"] is None or row["lat"] is None:
+        return {"id": row["id"], "status": "not_geocoded"}
+
+    types = ["CD", "SD", "AD", "BOE"]
+    active = {
+        dt: vid
+        for dt in types
+        if (vid := get_active_bef_version_id(conn, dt, as_of_date)) is not None
+    }
+    districts: dict[str, str] = {}
+    if active:
+        placeholders = ",".join("?" * len(active))
+        assign_rows = conn.execute(
+            f"""
+            SELECT district_type, district_number
+            FROM district_assignments
+            WHERE address_hash = ?
+              AND bef_version_id IN ({placeholders})
+            """,
+            [row["address_hash"], *active.values()],
+        ).fetchall()
+        districts = {r["district_type"]: r["district_number"] for r in assign_rows}
+
+    status = "ok" if len(districts) == 4 else "partial"
+    return {
+        "id": row["id"],
+        "lat": row["lat"],
+        "lng": row["lng"],
+        "status": status,
+        "districts": districts,
+    }
+
+
 def get_methodology_lines(
     conn: sqlite3.Connection,
     district_types: list[str] | None = None,
