@@ -1,3 +1,5 @@
+import csv
+import io
 import json
 import threading
 import uuid
@@ -5,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, UploadFile
+from fastapi.responses import StreamingResponse
 
 from src.api.deps import get_db
 from src.db import get_connection
@@ -131,3 +134,126 @@ def _run_pipeline(db_path: str, job_id: str) -> None:
             set_status("failed", error=str(exc), finished_at=now())
         except Exception:
             pass
+
+
+# ── Upload history: list, download, delete ────────────────────────────────────
+
+
+@router.get("/uploads")
+def list_uploads(conn=Depends(get_db)):
+    """
+    Aggregate uploads by source_file across the jobs and raw_addresses tables.
+    Returns one entry per filename with the latest upload time, current row
+    count, and whether raw data is still on hand (false after retention purge).
+    """
+    rows = conn.execute(
+        """
+        SELECT
+            j.source_file                               AS source_file,
+            MAX(j.created_at)                           AS last_uploaded_at,
+            COUNT(DISTINCT r.address_hash)              AS row_count,
+            MIN(r.retention_purge_after)                AS retention_purge_after
+        FROM jobs j
+        LEFT JOIN raw_addresses r ON r.source_file = j.source_file
+        GROUP BY j.source_file
+        ORDER BY last_uploaded_at DESC
+        """
+    ).fetchall()
+
+    return [
+        {
+            "source_file": r["source_file"],
+            "last_uploaded_at": r["last_uploaded_at"],
+            "row_count": r["row_count"],
+            "has_raw_data": r["row_count"] > 0,
+            "retention_purge_after": r["retention_purge_after"],
+        }
+        for r in rows
+    ]
+
+
+@router.get("/uploads/{source_file}/download")
+def download_upload(source_file: str, conn=Depends(get_db)):
+    """
+    Reconstruct the original CSV from raw_addresses for the given source_file.
+    Returns 410 if no rows remain (purged per retention policy).
+    """
+    rows = conn.execute(
+        "SELECT id, street, city, state, zip FROM raw_addresses "
+        "WHERE source_file = ? ORDER BY id",
+        (source_file,),
+    ).fetchall()
+    if not rows:
+        raise HTTPException(410, detail="Raw data purged per retention policy")
+
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=["id", "street", "city", "state", "zip"])
+    writer.writeheader()
+    for r in rows:
+        writer.writerow({k: r[k] for k in ("id", "street", "city", "state", "zip")})
+
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{source_file}"'},
+    )
+
+
+@router.delete("/uploads/{source_file}")
+def delete_upload(source_file: str, request: Request, conn=Depends(get_db)):
+    """
+    Hard-delete all data for an uploaded CSV: raw_addresses, geocoded_records,
+    district_assignments, geocode_misses, jobs row, and the staged raw file.
+    Refuses while a job for that source_file is still running.
+    """
+    with _upload_lock:
+        running = conn.execute(
+            "SELECT id FROM jobs "
+            "WHERE source_file = ? AND status IN ('geocoding', 'matching')",
+            (source_file,),
+        ).fetchone()
+        if running:
+            raise HTTPException(
+                409,
+                detail=f"Job {running['id']} is still running for {source_file}.",
+            )
+
+        hashes = [
+            r["address_hash"]
+            for r in conn.execute(
+                "SELECT address_hash FROM raw_addresses WHERE source_file = ?",
+                (source_file,),
+            )
+        ]
+
+        # Confirm there's something to delete (either rows or a jobs entry)
+        job_exists = conn.execute(
+            "SELECT 1 FROM jobs WHERE source_file = ? LIMIT 1", (source_file,)
+        ).fetchone()
+        if not hashes and not job_exists:
+            raise HTTPException(404, detail=f"No upload found for {source_file}")
+
+        if hashes:
+            placeholders = ",".join("?" * len(hashes))
+            conn.execute(
+                f"DELETE FROM district_assignments WHERE address_hash IN ({placeholders})",
+                hashes,
+            )
+            conn.execute(
+                f"DELETE FROM geocoded_records   WHERE address_hash IN ({placeholders})",
+                hashes,
+            )
+            conn.execute(
+                f"DELETE FROM geocode_misses     WHERE address_hash IN ({placeholders})",
+                hashes,
+            )
+        conn.execute("DELETE FROM raw_addresses WHERE source_file = ?", (source_file,))
+        conn.execute("DELETE FROM jobs          WHERE source_file = ?", (source_file,))
+
+    raw_file = Path(request.app.state.raw_dir) / source_file
+    try:
+        raw_file.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+    return {"deleted": {"source_file": source_file, "rows": len(hashes)}}
