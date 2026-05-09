@@ -13,7 +13,7 @@ from src.api.deps import get_db
 from src.db import get_connection
 from src.geocode import run_geocoding
 from src.ingest import load_csv
-from src.match import run_assignment
+from src.match import missing_active_bef_types, run_assignment
 
 router = APIRouter()
 
@@ -37,6 +37,21 @@ def upload_csv(
     """
     if not (file.filename or "").lower().endswith(".csv"):
         raise HTTPException(400, detail="File must be a .csv")
+
+    # Preflight: refuse uploads when the system has no approved BEF to assign
+    # against. Without this, geocoding still runs and the job completes with
+    # assigned=0 — looks like success to the client but produces no data.
+    missing = missing_active_bef_types(conn)
+    if missing:
+        raise HTTPException(
+            503,
+            detail={
+                "message": "System not configured: no approved active BEF version loaded.",
+                "missing_district_types": missing,
+                "fix": "Run scripts/load_bef.py --approved-by <name>, "
+                       "or UPDATE bef_versions SET approved_by=... for existing rows.",
+            },
+        )
 
     with _upload_lock:
         running = conn.execute(
@@ -101,20 +116,36 @@ def upload_csv(
     }
 
 
+class _JobCancelled(Exception):
+    """Raised when the background pipeline detects an external cancellation."""
+
+
 def _run_pipeline(db_path: str, job_id: str) -> None:
-    """Background task: geocode → match. Updates job status at each stage."""
+    """Background task: geocode → match. Updates job status at each stage.
+
+    Status writes are guarded so that a cancellation marked by POST
+    /jobs/{id}/cancel is never overwritten by a step that finishes afterwards.
+    """
     now = lambda: datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def set_status(status: str, **fields):
+        """Update only if the job is still in a non-terminal state."""
         with get_connection(db_path) as c:
             if fields:
                 cols = ", ".join(f"{k}=?" for k in fields)
-                c.execute(
-                    f"UPDATE jobs SET status=?, {cols} WHERE id=?",
+                cur = c.execute(
+                    f"UPDATE jobs SET status=?, {cols} "
+                    f"WHERE id=? AND status NOT IN ('failed', 'done')",
                     [status, *fields.values(), job_id],
                 )
             else:
-                c.execute("UPDATE jobs SET status=? WHERE id=?", [status, job_id])
+                cur = c.execute(
+                    "UPDATE jobs SET status=? "
+                    "WHERE id=? AND status NOT IN ('failed', 'done')",
+                    [status, job_id],
+                )
+            if cur.rowcount == 0:
+                raise _JobCancelled()
 
     try:
         set_status("geocoding", started_at=now())
@@ -129,6 +160,9 @@ def _run_pipeline(db_path: str, job_id: str) -> None:
 
         set_status("done", match_summary=json.dumps(match_summary), finished_at=now())
 
+    except _JobCancelled:
+        # Terminal state already written by the cancel endpoint — leave it.
+        return
     except Exception as exc:
         try:
             set_status("failed", error=str(exc), finished_at=now())

@@ -17,9 +17,33 @@ from src.db import apply_migrations
 MIGRATIONS = Path(__file__).parent.parent / "db" / "migrations"
 
 
-def _make_app(tmp_path):
+def _seed_approved_befs(db_path):
+    """Insert one approved active bef_versions row per district type so that
+    the upload preflight check passes. No bef_blocks rows — preflight only
+    checks for an approved version, not block coverage."""
+    import sqlite3
+    conn = sqlite3.connect(db_path)
+    for dt in ("CD", "SD", "AD", "BOE"):
+        conn.execute(
+            """
+            INSERT INTO bef_versions
+                (bef_source_id, district_type, label, effective_date,
+                 source_url, local_filename, file_hash, downloaded_at,
+                 approved_by, approved_at)
+            VALUES (?, ?, ?, '2026-01-01', '', '', '', '2026-01-01T00:00:00Z',
+                    'test', '2026-01-01T00:00:00Z')
+            """,
+            (f"test_{dt.lower()}", dt, f"Test {dt}"),
+        )
+    conn.commit()
+    conn.close()
+
+
+def _make_app(tmp_path, *, seed_befs: bool = True):
     db_path = tmp_path / "test.db"
     apply_migrations(db_path, MIGRATIONS)
+    if seed_befs:
+        _seed_approved_befs(db_path)
     return create_app(db_path=db_path, raw_dir=tmp_path / "raw")
 
 
@@ -106,6 +130,15 @@ def test_upload_returns_202_and_job_id(client):
     data = resp.json()
     assert "job_id" in data
     assert data["ingest"]["loaded"] == 2
+
+
+def test_upload_503_when_no_approved_bef(tmp_path):
+    app = _make_app(tmp_path, seed_befs=False)
+    c = TestClient(app)
+    resp = c.post("/api/uploads", files=_csv_upload(VALID_CSV))
+    assert resp.status_code == 503
+    detail = resp.json()["detail"]
+    assert set(detail["missing_district_types"]) == {"CD", "SD", "AD", "BOE"}
 
 
 def test_upload_rejects_non_csv(client):
@@ -195,6 +228,42 @@ def test_list_jobs(client):
     resp = client.get("/api/jobs")
     assert resp.status_code == 200
     assert len(resp.json()) >= 1
+
+
+# ── POST /jobs/{id}/cancel ────────────────────────────────────────────────────
+
+def test_cancel_running_job_marks_failed(client):
+    with patch("src.api.routes.uploads._run_pipeline"):
+        job_id = client.post("/api/uploads", files=_csv_upload(VALID_CSV)).json()["job_id"]
+
+    resp = client.post(f"/api/jobs/{job_id}/cancel")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "failed"
+
+    job = client.get(f"/api/jobs/{job_id}").json()
+    assert job["status"] == "failed"
+    assert "Cancelled" in (job["error"] or "")
+    assert job["finished_at"] is not None
+
+
+def test_cancel_unknown_job_returns_404(client):
+    assert client.post("/api/jobs/nonexistent-id/cancel").status_code == 404
+
+
+def test_cancel_terminal_job_returns_409(client, tmp_path):
+    import sqlite3
+    with patch("src.api.routes.uploads._run_pipeline"):
+        job_id = client.post("/api/uploads", files=_csv_upload(VALID_CSV)).json()["job_id"]
+
+    # Force the job into a terminal state, then try to cancel it.
+    db_path = next(tmp_path.glob("*.db"))
+    conn = sqlite3.connect(db_path)
+    conn.execute("UPDATE jobs SET status='done' WHERE id=?", (job_id,))
+    conn.commit()
+    conn.close()
+
+    resp = client.post(f"/api/jobs/{job_id}/cancel")
+    assert resp.status_code == 409
 
 
 # ── GET /reports/legislators (JSON) ──────────────────────────────────────────
@@ -511,11 +580,11 @@ def test_delete_upload_cascades(client, tmp_path):
     conn.execute(
         "INSERT INTO bef_versions (id, bef_source_id, district_type, label, effective_date,"
         " source_url, local_filename, file_hash, downloaded_at) "
-        "VALUES (1, 'x', 'CD', 'X', '2026-01-01', 'u', 'f', 'h', '2026-01-01T00:00:00Z')"
+        "VALUES (100, 'x', 'CD', 'X', '2026-01-01', 'u', 'f', 'h', '2026-01-01T00:00:00Z')"
     )
     conn.executemany(
         "INSERT INTO district_assignments (address_hash, district_type, district_number,"
-        " bef_version_id, assigned_at) VALUES (?, 'CD', '13', 1, '2026-04-30T00:00:00Z')",
+        " bef_version_id, assigned_at) VALUES (?, 'CD', '13', 100, '2026-04-30T00:00:00Z')",
         [("h1",), ("h2",)],
     )
     conn.execute(

@@ -15,9 +15,17 @@ _PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 
 def _has_active_bef(db_path: str) -> bool:
+    """True if at least one currently-effective, approved BEF version exists.
+
+    The approved_by gate matches what get_active_bef_version_id requires, so an
+    "active but unapproved" row will not falsely satisfy this check and skip
+    the in-process auto-load — that mismatch is what produces silent 0-row
+    assignment runs.
+    """
     with get_connection(db_path) as conn:
         row = conn.execute(
-            "SELECT 1 FROM bef_versions WHERE expiration_date IS NULL LIMIT 1"
+            "SELECT 1 FROM bef_versions "
+            "WHERE expiration_date IS NULL AND approved_by IS NOT NULL LIMIT 1"
         ).fetchone()
     return row is not None
 

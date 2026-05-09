@@ -298,8 +298,19 @@ def test_run_assignment_is_idempotent(db_with_bef):
     assert count == 2
 
 
-def test_run_assignment_no_active_bef_skips_gracefully(db_with_bef):
-    summary = run_assignment(db_with_bef, district_types=["SD"])
+def test_run_assignment_raises_when_all_requested_types_missing(db_with_bef):
+    from src.match import NoApprovedBefError
+
+    with pytest.raises(NoApprovedBefError) as excinfo:
+        run_assignment(db_with_bef, district_types=["SD"])
+    assert "SD" in excinfo.value.missing
+
+
+def test_run_assignment_partial_missing_does_not_raise(db_with_bef):
+    # CD is loaded by the fixture; SD is not. The run should succeed for CD
+    # and report SD as no_active_bef without raising.
+    summary = run_assignment(db_with_bef, district_types=["CD", "SD"])
+    assert summary["by_type"]["CD"]["assigned"] == 2
     assert summary["by_type"]["SD"]["no_active_bef"] is True
     assert summary["by_type"]["SD"]["assigned"] == 0
 

@@ -5,6 +5,42 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 
+class NoApprovedBefError(RuntimeError):
+    """Raised when no approved active BEF version exists for any requested district type.
+
+    This is a configuration error, not a data error: bef_versions rows may exist
+    but have approved_by IS NULL, or no rows are loaded at all. The pipeline
+    cannot produce district assignments until a human approves a version
+    (scripts/load_bef.py --approved-by <name>).
+    """
+
+    def __init__(self, missing: list[str]):
+        self.missing = missing
+        super().__init__(
+            "No approved active BEF version is loaded for: "
+            f"{', '.join(missing)}. "
+            "Run scripts/load_bef.py --approved-by <name>, or "
+            "UPDATE bef_versions SET approved_by=... for existing rows."
+        )
+
+
+def missing_active_bef_types(
+    conn: sqlite3.Connection,
+    district_types: list[str] | None = None,
+    as_of_date: str | None = None,
+) -> list[str]:
+    """Return the subset of district_types that have no approved active BEF.
+
+    Empty list means all requested types are ready for assignment.
+    """
+    if district_types is None:
+        district_types = ["CD", "SD", "AD", "BOE"]
+    return [
+        dt for dt in district_types
+        if get_active_bef_version_id(conn, dt, as_of_date) is None
+    ]
+
+
 def get_active_bef_version_id(
     conn: sqlite3.Connection,
     district_type: str,
@@ -53,6 +89,13 @@ def run_assignment(
     """
     if district_types is None:
         district_types = ["CD", "SD", "AD", "BOE"]
+
+    missing = missing_active_bef_types(conn, district_types, as_of_date)
+    if len(missing) == len(district_types):
+        # Every requested type is unusable — fail loudly so the job is marked
+        # 'failed' with a clear error string, instead of completing with
+        # assigned=0 and no_active_bef=true (silent success).
+        raise NoApprovedBefError(missing)
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     no_block_geoid = conn.execute(
