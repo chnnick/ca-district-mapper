@@ -61,6 +61,12 @@ export function fetchJob(jobId: string): Promise<Job> {
   return apiFetch<Job>(`/jobs/${jobId}`);
 }
 
+export function cancelJob(
+  jobId: string,
+): Promise<{ job_id: string; status: string }> {
+  return apiFetch(`/jobs/${jobId}/cancel`, { method: "POST" });
+}
+
 export function fetchPersonDistricts(id: string): Promise<PersonDistricts> {
   return apiFetch<PersonDistricts>(
     `/people/${encodeURIComponent(id)}/districts`,

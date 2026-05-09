@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { fetchJob, uploadCSV } from "../api/client";
+import { cancelJob, fetchJob, uploadCSV } from "../api/client";
 import type { Job } from "../types";
 
 interface Props {
   onUploadDone: () => void;
 }
+
+const UPLOAD_TIMEOUT_MS = 5 * 60 * 1000;
 
 export default function UploadPanel({ onUploadDone }: Props) {
   const [file, setFile] = useState<File | null>(null);
@@ -12,18 +14,40 @@ export default function UploadPanel({ onUploadDone }: Props) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stopPolling = () => {
     if (pollRef.current !== null) {
       clearInterval(pollRef.current);
       pollRef.current = null;
     }
+    if (timeoutRef.current !== null) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
   };
 
   useEffect(() => () => stopPolling(), []);
 
+  const handleTimeout = async (jobId: string) => {
+    stopPolling();
+    try {
+      await cancelJob(jobId);
+    } catch {
+      // Cancel may 404/409 if the job already finished — fall through.
+    }
+    setJob(null);
+    setError(
+      `Upload timed out after ${UPLOAD_TIMEOUT_MS / 60000} minutes — job cancelled.`,
+    );
+  };
+
   const startPolling = (jobId: string) => {
     stopPolling();
+    timeoutRef.current = setTimeout(
+      () => void handleTimeout(jobId),
+      UPLOAD_TIMEOUT_MS,
+    );
     pollRef.current = setInterval(async () => {
       try {
         const j = await fetchJob(jobId);
