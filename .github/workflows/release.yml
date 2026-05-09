@@ -161,3 +161,10 @@ jobs:
             4. Your browser opens automatically when the app is ready
 
             The first launch downloads district data and may take a few minutes.
+
+            ### Mac: if the launcher is blocked
+
+            If macOS shows *"Apple could not verify… is free of malware"*, dismiss the dialog,
+            open **System Settings → Privacy & Security**, scroll to the bottom, and click
+            **Open Anyway** next to the blocked launcher. Confirm with your password / Touch ID.
+            Repeat once for the Stop launcher. You only need to do this the first time.
