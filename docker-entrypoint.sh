@@ -17,7 +17,7 @@ if os.path.exists(db):
         pass
 if needs_load:
     print('First run: loading BEF district data (this may take a minute)...', flush=True)
-    result = subprocess.run([sys.executable, 'scripts/load_bef.py'])
+    result = subprocess.run([sys.executable, 'scripts/load_bef.py', '--approved-by', 'auto-load'])
     if result.returncode != 0:
         print('Warning: BEF load completed with errors. District lookups may not work until resolved.', file=sys.stderr, flush=True)
 " || true
