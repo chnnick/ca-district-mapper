@@ -73,3 +73,11 @@ export interface PersonDistricts {
   status: "ok" | "partial" | "not_geocoded";
   districts?: Partial<Record<DistrictType, string>>;
 }
+
+export interface UploadHistoryEntry {
+  source_file: string;
+  last_uploaded_at: string;
+  row_count: number;
+  has_raw_data: boolean;
+  retention_purge_after: string | null;
+}

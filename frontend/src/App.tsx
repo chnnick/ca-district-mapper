@@ -6,6 +6,7 @@ import MapView from "./components/MapView";
 import PersonLookup from "./components/PersonLookup";
 import Sidebar from "./components/Sidebar";
 import StatsPanel from "./components/StatsPanel";
+import UploadHistory from "./components/UploadHistory";
 import UploadPanel from "./components/UploadPanel";
 import type { DistrictType, MapPoint } from "./types";
 
@@ -15,6 +16,7 @@ export default function App() {
   const [mapPoints, setMapPoints] = useState<MapPoint[]>([]);
   const [personPoint, setPersonPoint] = useState<MapPoint | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [resetKey, setResetKey] = useState(0);
 
   const loadPoints = useCallback(async () => {
     try {
@@ -36,6 +38,13 @@ export default function App() {
 
   const handleUploadDone = () => setRefreshKey((k) => k + 1);
 
+  const handleUploadDeleted = () => {
+    setSelectedDistrict(null);
+    setPersonPoint(null);
+    setRefreshKey((k) => k + 1);
+    setResetKey((k) => k + 1);
+  };
+
   const handleSelectDistrict = (districtNumber: string) => {
     setSelectedDistrict((prev) =>
       prev === districtNumber ? null : districtNumber,
@@ -56,8 +65,8 @@ export default function App() {
   return (
     <div className="app">
       <Sidebar>
-        <UploadPanel onUploadDone={handleUploadDone} />
-        <PersonLookup onPersonLookup={handlePersonLookup} />
+        <UploadPanel key={`upload-${resetKey}`} onUploadDone={handleUploadDone} />
+        <PersonLookup key={`person-${resetKey}`} onPersonLookup={handlePersonLookup} />
         <DistrictList
           selectedType={selectedType}
           selectedDistrict={selectedDistrict}
@@ -72,6 +81,7 @@ export default function App() {
           />
         )}
         <DistrictChart districtType={selectedType} refreshKey={refreshKey} />
+        <UploadHistory refreshKey={refreshKey} onChange={handleUploadDeleted} />
       </Sidebar>
       <div className="map-container">
         <MapView points={mapPoints} districtSelected={selectedDistrict !== null} personPoint={personPoint} />

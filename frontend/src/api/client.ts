@@ -5,6 +5,7 @@ import type {
   Job,
   MapPoint,
   PersonDistricts,
+  UploadHistoryEntry,
   UploadResponse,
 } from "../types";
 
@@ -64,4 +65,20 @@ export function fetchPersonDistricts(id: string): Promise<PersonDistricts> {
   return apiFetch<PersonDistricts>(
     `/people/${encodeURIComponent(id)}/districts`,
   );
+}
+
+export function fetchUploads(): Promise<UploadHistoryEntry[]> {
+  return apiFetch<UploadHistoryEntry[]>("/uploads");
+}
+
+export function deleteUpload(
+  sourceFile: string,
+): Promise<{ deleted: { source_file: string; rows: number } }> {
+  return apiFetch(`/uploads/${encodeURIComponent(sourceFile)}`, {
+    method: "DELETE",
+  });
+}
+
+export function uploadDownloadUrl(sourceFile: string): string {
+  return `/api/uploads/${encodeURIComponent(sourceFile)}/download`;
 }

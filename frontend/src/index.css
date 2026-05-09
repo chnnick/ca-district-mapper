@@ -302,3 +302,154 @@ body,
   letter-spacing: 0.05em;
   margin-bottom: 8px;
 }
+
+/* Upload history */
+.upload-history {
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 12px;
+  flex-shrink: 0;
+}
+
+.upload-history h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.upload-history-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.upload-history-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  background: #f8f9fc;
+  border-radius: 4px;
+  gap: 8px;
+}
+
+.upload-history-meta {
+  min-width: 0;
+  flex: 1;
+}
+
+.upload-history-name {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.upload-history-sub {
+  font-size: 11px;
+  color: #777;
+  margin-top: 2px;
+}
+
+.upload-history-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.upload-history-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  background: #fff;
+  color: #333;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  text-decoration: none;
+  padding: 0;
+}
+
+.upload-history-btn:hover {
+  background: #eef2ff;
+  border-color: #c8d4ff;
+}
+
+.upload-history-btn.disabled {
+  color: #bbb;
+  background: #f3f3f3;
+  border-color: #e5e5e5;
+  cursor: not-allowed;
+  pointer-events: auto;
+}
+
+.upload-history-btn.disabled:hover {
+  background: #f3f3f3;
+  border-color: #e5e5e5;
+}
+
+.confirm-dialog {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #f5c6c6;
+  background: #fff7f7;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.confirm-text {
+  font-size: 12px;
+  color: #444;
+  line-height: 1.4;
+}
+
+.confirm-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.btn-secondary,
+.btn-danger {
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.btn-secondary {
+  background: #fff;
+  border-color: #ccc;
+  color: #333;
+}
+
+.btn-secondary:disabled {
+  color: #aaa;
+  cursor: not-allowed;
+}
+
+.btn-danger {
+  background: #d93025;
+  color: #fff;
+  border-color: #d93025;
+}
+
+.btn-danger:disabled {
+  background: #aaa;
+  border-color: #aaa;
+  cursor: not-allowed;
+}
