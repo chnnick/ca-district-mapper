@@ -103,6 +103,19 @@ jobs:
           A browser window will open automatically at http://localhost:8000 when the app is ready.
           The first launch downloads district data and may take a few minutes — this is normal.
 
+          ### Mac: if the launcher is blocked by Apple
+
+          If you see *"Apple could not verify 'Launch California District Mapper.command' is free of malware"*:
+
+          1. Dismiss the dialog.
+          2. Open **System Settings** → **Privacy & Security**
+             (older macOS: **System Preferences** → **Security & Privacy** → **General** tab).
+          3. Scroll to the bottom — you'll see a message:
+             *"'Launch California District Mapper.command' was blocked…"*. Click **Open Anyway**.
+          4. Confirm with your password or Touch ID. Repeat once for `Stop California District Mapper.command`.
+
+          You only need to do this once per file. This is macOS Gatekeeper flagging unsigned scripts — it does not mean the file is unsafe.
+
           ## Step 3 — Stop the app when you're done
 
           **Mac:** Double-click `Stop California District Mapper.command`

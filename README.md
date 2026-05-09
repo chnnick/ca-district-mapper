@@ -14,6 +14,15 @@ Upload a CSV of addresses → the pipeline geocodes them via the U.S. Census Geo
    - **macOS:** Double-click `Launch California District Mapper.command`
    - **Windows:** Double-click `Launch California District Mapper.bat`
 
+> [!NOTE]
+> **macOS users — if the launcher is blocked** ("Apple could not verify… is free of malware"):
+> 1. Dismiss the dialog.
+> 2. Open **System Settings → Privacy & Security** (older macOS: **System Preferences → Security & Privacy → General**).
+> 3. Scroll to the bottom — you'll see *"'Launch California District Mapper.command' was blocked…"*. Click **Open Anyway**.
+> 4. Confirm with your password / Touch ID. Repeat once for `Stop California District Mapper.command`.
+>
+> This is macOS Gatekeeper flagging unsigned scripts; you only need to do it once per file.
+
 Your browser opens automatically at `http://localhost:8000` once the app is ready. The first launch downloads district data and may take a few minutes — this is normal.
 
 To stop the app, double-click `Stop California District Mapper.command` (macOS) or `Stop California District Mapper.bat` (Windows).
