@@ -376,3 +376,188 @@ def test_person_lookup_not_geocoded_when_no_geocode_record(client_with_data, tmp
     assert resp.json() == {"id": "99", "status": "not_geocoded"}
 
 
+# ── GET /uploads, GET /uploads/{f}/download, DELETE /uploads/{f} ──────────────
+
+def _seed_upload(db_path, source_file: str, hashes_addrs: list[tuple[str, str, str, str, str, str]]):
+    """Seed jobs + raw_addresses rows for a finished upload."""
+    import sqlite3
+    conn = sqlite3.connect(db_path)
+    now, purge = "2026-04-30T00:00:00Z", "2026-07-29T00:00:00Z"
+    conn.execute(
+        "INSERT INTO jobs (id, status, source_file, created_at, finished_at) "
+        "VALUES (?, 'done', ?, ?, ?)",
+        (f"job-{source_file}", source_file, now, now),
+    )
+    conn.executemany(
+        "INSERT INTO raw_addresses (id, address_hash, street, city, state, zip,"
+        " source_file, uploaded_at, retention_purge_after)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [(rid, h, st, c, s, z, source_file, now, purge) for (rid, h, st, c, s, z) in hashes_addrs],
+    )
+    conn.commit()
+    conn.close()
+
+
+def test_list_uploads_empty(client):
+    resp = client.get("/api/uploads")
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+def test_list_uploads_returns_one_per_filename_desc(client, tmp_path):
+    db_path = client.app.state.db_path
+    # Older first
+    import sqlite3
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        "INSERT INTO jobs (id, status, source_file, created_at) "
+        "VALUES ('j1', 'done', 'a.csv', '2026-04-01T00:00:00Z')"
+    )
+    conn.execute(
+        "INSERT INTO jobs (id, status, source_file, created_at) "
+        "VALUES ('j2', 'done', 'b.csv', '2026-04-15T00:00:00Z')"
+    )
+    conn.execute(
+        "INSERT INTO raw_addresses (id, address_hash, street, city, state, zip,"
+        " source_file, uploaded_at, retention_purge_after) VALUES"
+        " ('1', 'h1', '1 A ST', 'OAK', 'CA', '94601', 'a.csv',"
+        " '2026-04-01T00:00:00Z', '2026-06-30T00:00:00Z')"
+    )
+    conn.execute(
+        "INSERT INTO raw_addresses (id, address_hash, street, city, state, zip,"
+        " source_file, uploaded_at, retention_purge_after) VALUES"
+        " ('2', 'h2', '2 B ST', 'SF', 'CA', '94102', 'b.csv',"
+        " '2026-04-15T00:00:00Z', '2026-07-14T00:00:00Z')"
+    )
+    conn.commit()
+    conn.close()
+
+    resp = client.get("/api/uploads")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert [e["source_file"] for e in data] == ["b.csv", "a.csv"]
+    assert all(e["has_raw_data"] for e in data)
+    assert all(e["row_count"] == 1 for e in data)
+
+
+def test_list_uploads_marks_purged_when_no_raw_rows(client):
+    import sqlite3
+    db_path = client.app.state.db_path
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        "INSERT INTO jobs (id, status, source_file, created_at) "
+        "VALUES ('j1', 'done', 'gone.csv', '2025-01-01T00:00:00Z')"
+    )
+    conn.commit()
+    conn.close()
+
+    resp = client.get("/api/uploads")
+    entry = next(e for e in resp.json() if e["source_file"] == "gone.csv")
+    assert entry["has_raw_data"] is False
+    assert entry["row_count"] == 0
+    assert entry["retention_purge_after"] is None
+
+
+def test_download_upload_returns_csv(client):
+    db_path = client.app.state.db_path
+    _seed_upload(db_path, "addresses.csv", [
+        ("1", "ha", "1 MAIN ST",   "OAK", "CA", "94601"),
+        ("2", "hb", "2 OAK AVE",   "SF",  "CA", "94102"),
+    ])
+    resp = client.get("/api/uploads/addresses.csv/download")
+    assert resp.status_code == 200
+    assert "text/csv" in resp.headers["content-type"]
+    assert 'filename="addresses.csv"' in resp.headers["content-disposition"]
+
+    rows = list(csv.DictReader(io.StringIO(resp.text)))
+    assert len(rows) == 2
+    assert set(rows[0].keys()) == {"id", "street", "city", "state", "zip"}
+    assert {r["id"] for r in rows} == {"1", "2"}
+
+
+def test_download_upload_410_after_purge(client):
+    import sqlite3
+    db_path = client.app.state.db_path
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        "INSERT INTO jobs (id, status, source_file, created_at) "
+        "VALUES ('j1', 'done', 'purged.csv', '2025-01-01T00:00:00Z')"
+    )
+    conn.commit()
+    conn.close()
+
+    resp = client.get("/api/uploads/purged.csv/download")
+    assert resp.status_code == 410
+
+
+def test_download_upload_410_for_unknown(client):
+    assert client.get("/api/uploads/never_uploaded.csv/download").status_code == 410
+
+
+def test_delete_upload_cascades(client, tmp_path):
+    import sqlite3
+    db_path = client.app.state.db_path
+    _seed_upload(db_path, "kill.csv", [
+        ("1", "h1", "1 A ST", "OAK", "CA", "94601"),
+        ("2", "h2", "2 B ST", "SF",  "CA", "94102"),
+    ])
+    # Add geocoded + assignment rows that should cascade
+    conn = sqlite3.connect(db_path)
+    conn.executemany(
+        "INSERT INTO geocoded_records (address_hash, lat, lng, geocoder_source, geocoded_at) "
+        "VALUES (?, ?, ?, 'census', '2026-04-30T00:00:00Z')",
+        [("h1", 37.8, -122.27), ("h2", 37.77, -122.43)],
+    )
+    conn.execute(
+        "INSERT INTO bef_versions (id, bef_source_id, district_type, label, effective_date,"
+        " source_url, local_filename, file_hash, downloaded_at) "
+        "VALUES (1, 'x', 'CD', 'X', '2026-01-01', 'u', 'f', 'h', '2026-01-01T00:00:00Z')"
+    )
+    conn.executemany(
+        "INSERT INTO district_assignments (address_hash, district_type, district_number,"
+        " bef_version_id, assigned_at) VALUES (?, 'CD', '13', 1, '2026-04-30T00:00:00Z')",
+        [("h1",), ("h2",)],
+    )
+    conn.execute(
+        "INSERT INTO geocode_misses (address_hash, attempted_at) VALUES ('h1', '2026-04-30T00:00:00Z')"
+    )
+    conn.commit()
+
+    # Touch a fake raw file so the unlink path is exercised
+    raw_dir = Path(client.app.state.raw_dir)
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    (raw_dir / "kill.csv").write_bytes(b"placeholder")
+
+    resp = client.delete("/api/uploads/kill.csv")
+    assert resp.status_code == 200
+    assert resp.json()["deleted"]["rows"] == 2
+
+    conn = sqlite3.connect(db_path)
+    assert conn.execute("SELECT COUNT(*) FROM raw_addresses WHERE source_file='kill.csv'").fetchone()[0] == 0
+    assert conn.execute("SELECT COUNT(*) FROM geocoded_records WHERE address_hash IN ('h1','h2')").fetchone()[0] == 0
+    assert conn.execute("SELECT COUNT(*) FROM district_assignments WHERE address_hash IN ('h1','h2')").fetchone()[0] == 0
+    assert conn.execute("SELECT COUNT(*) FROM geocode_misses WHERE address_hash IN ('h1','h2')").fetchone()[0] == 0
+    assert conn.execute("SELECT COUNT(*) FROM jobs WHERE source_file='kill.csv'").fetchone()[0] == 0
+    conn.close()
+    assert not (raw_dir / "kill.csv").exists()
+
+
+def test_delete_upload_404_for_unknown(client):
+    assert client.delete("/api/uploads/nonexistent.csv").status_code == 404
+
+
+def test_delete_upload_409_when_job_running(client):
+    import sqlite3
+    db_path = client.app.state.db_path
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        "INSERT INTO jobs (id, status, source_file, created_at) "
+        "VALUES ('j1', 'geocoding', 'busy.csv', '2026-04-30T00:00:00Z')"
+    )
+    conn.commit()
+    conn.close()
+
+    resp = client.delete("/api/uploads/busy.csv")
+    assert resp.status_code == 409
+
+
