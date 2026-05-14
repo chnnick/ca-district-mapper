@@ -11,8 +11,24 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# Prefer the project venv so PyInstaller analyzes the same dependency tree
+# the app actually uses. Falls through to the active environment when no
+# .venv exists (e.g. CI installs deps into the runner's Python directly).
+if [[ -z "${VIRTUAL_ENV:-}" && -x ".venv/bin/python" ]]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+fi
+
 if ! command -v pyinstaller >/dev/null 2>&1; then
-  echo "pyinstaller not found. Install with: pip install pyinstaller" >&2
+  echo "pyinstaller not found. Install with: pip install -r requirements-build.txt" >&2
+  exit 1
+fi
+
+# Hard-fail if uvicorn isn't importable here — otherwise PyInstaller silently
+# produces a binary that crashes with ModuleNotFoundError at runtime.
+if ! python -c "import uvicorn, fastapi" >/dev/null 2>&1; then
+  echo "uvicorn/fastapi not importable in $(which python)." >&2
+  echo "Activate your venv and run: pip install -r requirements.txt" >&2
   exit 1
 fi
 

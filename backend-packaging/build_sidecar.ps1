@@ -7,8 +7,19 @@
 $ErrorActionPreference = "Stop"
 Set-Location (Join-Path $PSScriptRoot "..")
 
+# Prefer the project venv when no environment is already active.
+if (-not $env:VIRTUAL_ENV -and (Test-Path ".venv\Scripts\Activate.ps1")) {
+    & ".venv\Scripts\Activate.ps1"
+}
+
 if (-not (Get-Command pyinstaller -ErrorAction SilentlyContinue)) {
-    Write-Error "pyinstaller not found. Install with: pip install pyinstaller"
+    Write-Error "pyinstaller not found. Install with: pip install -r requirements-build.txt"
+}
+
+# Hard-fail if uvicorn isn't importable here.
+& python -c "import uvicorn, fastapi" 2>$null
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "uvicorn/fastapi not importable. Activate your venv and run: pip install -r requirements.txt"
 }
 
 $triple = (& rustc -vV | Select-String '^host:').ToString() -replace '^host:\s*', ''
