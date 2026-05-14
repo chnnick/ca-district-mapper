@@ -8,6 +8,21 @@ Upload a CSV of addresses → the pipeline geocodes them via the U.S. Census Geo
 
 ## Quick start
 
+Two ways to run the app — pick one.
+
+### Option A — Native desktop app (no Docker required)
+
+1. **Download** the right installer for your machine from the [Releases page](../../releases/latest):
+   - macOS Apple Silicon: `*-aarch64-apple-darwin.dmg`
+   - macOS Intel: `*-x86_64-apple-darwin.dmg`
+   - Windows x64: `*.msi`
+2. **Install** by opening the `.dmg` (drag to Applications) or running the `.msi`.
+3. **Launch** "California District Mapper" from Launchpad / Start menu. The app opens directly — no browser, no Docker.
+
+The builds are unsigned. On first launch macOS may say "Apple could not verify… is free of malware" — open **System Settings → Privacy & Security**, scroll to the bottom, click **Open Anyway**, and confirm.
+
+### Option B — Docker (alternative)
+
 1. **Install [Docker Desktop](https://www.docker.com/products/docker-desktop/)** (one-time setup). Open it and wait for the whale icon in your menu bar / taskbar to stop animating.
 2. **Download the latest release zip** from the [Releases page](../../releases/latest) and unzip it.
 3. **Launch the app:**
@@ -143,6 +158,22 @@ This downloads CD, SD, AD, and BOE Block Equivalency Files to `data/bef/` and lo
 cd frontend && npm run dev
 # open http://localhost:5173
 ```
+
+**Tauri desktop app (dev)**:
+
+```bash
+# One-time: install Rust (https://rustup.rs) and the Tauri CLI
+cargo install tauri-cli --version '^2.0' --locked
+
+# Build the Python sidecar (requires pyinstaller: pip install -r requirements-build.txt)
+TARGET_TRIPLE=$(rustc -vV | sed -n 's/host: //p') \
+  bash backend-packaging/build_sidecar.sh
+
+# Launch the native shell — spawns the sidecar, opens a webview
+cd src-tauri && cargo tauri dev
+```
+
+`cargo tauri build` produces a platform-native installer in `src-tauri/target/release/bundle/`.
 
 **Production build** (FastAPI serves the built frontend at `/`):
 
