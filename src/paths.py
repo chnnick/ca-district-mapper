@@ -2,7 +2,7 @@
 
 When APP_DATA_DIR is set (e.g. the Tauri sidecar passes the platform
 app-data directory), all writable state is rooted there. Otherwise paths
-fall back to the in-repo `data/` directory used by Docker and local dev.
+fall back to the in-repo `data/` directory used for local dev.
 """
 
 import os

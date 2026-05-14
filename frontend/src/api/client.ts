@@ -10,9 +10,8 @@ import type {
 } from "../types";
 
 // In the Tauri shell, the Rust side injects window.__API_BASE__ pointing
-// at the loopback sidecar (e.g. "http://127.0.0.1:53421"). Under Docker /
-// `uvicorn`, FastAPI serves the SPA same-origin, so the empty base string
-// keeps requests at "/api/...".
+// at the loopback sidecar (e.g. "http://127.0.0.1:53421"). In local dev
+// the Vite proxy or same-origin uvicorn handles "/api/..." directly.
 declare global {
   interface Window {
     __API_BASE__?: string;

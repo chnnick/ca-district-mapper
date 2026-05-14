@@ -8,41 +8,19 @@ Upload a CSV of addresses → the pipeline geocodes them via the U.S. Census Geo
 
 ## Quick start
 
-Two ways to run the app — pick one.
-
-### Option A — Native desktop app (no Docker required)
-
 1. **Download** the right installer for your machine from the [Releases page](../../releases/latest):
    - macOS Apple Silicon: `*-aarch64-apple-darwin.dmg`
    - macOS Intel: `*-x86_64-apple-darwin.dmg`
    - Windows x64: `*.msi`
 2. **Install** by opening the `.dmg` (drag to Applications) or running the `.msi`.
-3. **Launch** "California District Mapper" from Launchpad / Start menu. The app opens directly — no browser, no Docker.
+3. **Launch** "California District Mapper" from Launchpad / Start menu.
 
-The builds are unsigned. On first launch macOS may say "Apple could not verify… is free of malware" — open **System Settings → Privacy & Security**, scroll to the bottom, click **Open Anyway**, and confirm.
-
-### Option B — Docker (alternative)
-
-1. **Install [Docker Desktop](https://www.docker.com/products/docker-desktop/)** (one-time setup). Open it and wait for the whale icon in your menu bar / taskbar to stop animating.
-2. **Download the latest release zip** from the [Releases page](../../releases/latest) and unzip it.
-3. **Launch the app:**
-   - **macOS:** Double-click `Launch California District Mapper.command`
-   - **Windows:** Double-click `Launch California District Mapper.bat`
+The first launch downloads district data and may take a few minutes — this is normal. Uploaded CSVs, generated reports, and the database are stored in your platform's app-data directory and persist between restarts.
 
 > [!NOTE]
-> **macOS users — if the launcher is blocked** ("Apple could not verify… is free of malware"):
-> 1. Dismiss the dialog.
-> 2. Open **System Settings → Privacy & Security** (older macOS: **System Preferences → Security & Privacy → General**).
-> 3. Scroll to the bottom — you'll see *"'Launch California District Mapper.command' was blocked…"*. Click **Open Anyway**.
-> 4. Confirm with your password / Touch ID. Repeat once for `Stop California District Mapper.command`.
+> **macOS — if the app is blocked** ("Apple could not verify… is free of malware"): dismiss the dialog, open **System Settings → Privacy & Security**, scroll to the bottom, click **Open Anyway**, and confirm with your password / Touch ID. The builds are unsigned, so this is expected on first launch.
 >
-> This is macOS Gatekeeper flagging unsigned scripts; you only need to do it once per file.
-
-Your browser opens automatically at `http://localhost:8000` once the app is ready. The first launch downloads district data and may take a few minutes — this is normal.
-
-To stop the app, double-click `Stop California District Mapper.command` (macOS) or `Stop California District Mapper.bat` (Windows).
-
-Your uploaded CSVs, generated reports, and the database are stored in the `data/`, `logs/`, and `reports/` folders next to the launcher. They persist between restarts.
+> **Windows — SmartScreen warning:** click **More info → Run anyway**.
 
 ---
 
@@ -79,45 +57,6 @@ County and municipal districts are out of scope for v1.
 
 ---
 
-## Running with Docker (recommended)
-
-Docker is the simplest way to run the app — no Python or Node.js install required.
-
-**Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Mac or Windows)
-
-### macOS
-
-```bash
-./scripts/launch.sh    # build image, start container, open browser
-./scripts/stop.sh      # stop the container
-./scripts/reset.sh     # wipe all data and stop (see Resetting below)
-```
-
-### Windows
-
-Double-click the scripts or run them from Command Prompt:
-
-```bat
-launch.bat
-stop.bat
-reset.bat
-```
-
-The app runs at `http://localhost:8000`. Data is stored on your host machine under `data/`, `logs/`, and `reports/` — not inside the container — so it persists across restarts.
-
-> [!WARNING]
-> **The district analytics panel will show "No data" until BEF files are loaded.** The map displays geocoded points regardless, but constituent counts and district assignments require the BEF step below.
-
-After first launch, load the BEF district data (required one-time setup — downloads ~4 ZIPs from CSDB, ~30 MB total):
-
-```bash
-docker compose exec app python scripts/load_bef.py --approved-by "Your Name"
-```
-
-This populates `data/bef/` and loads all active district lookup tables (CD, SD, AD, BOE). `--approved-by` is required — rows with NULL `approved_by` are silently ignored by the matcher. Re-run after a database reset to reload from already-downloaded files without re-downloading.
-
----
-
 ## Setup (development)
 
 **Requirements:** Python 3.11+, Node.js 18+
@@ -150,7 +89,7 @@ uvicorn src.api.app:create_app --factory --reload --host 0.0.0.0 --port 8000
 python scripts/load_bef.py --approved-by "Your Name"
 ```
 
-This downloads CD, SD, AD, and BOE Block Equivalency Files to `data/bef/` and loads them into the database. `--approved-by` is required — rows with NULL `approved_by` are silently ignored by the matcher. Already-downloaded ZIPs are reused on subsequent runs; already-loaded versions (same hash) are skipped. Pass `--include-superseded` to also load the historical 2021 CD BEF for point-in-time queries. Pass `--dry-run` to preview without writing anything. Under Docker, this also runs automatically in the background on first startup.
+This downloads CD, SD, AD, and BOE Block Equivalency Files to `data/bef/` and loads them into the database. `--approved-by` is required — rows with NULL `approved_by` are silently ignored by the matcher. Already-downloaded ZIPs are reused on subsequent runs; already-loaded versions (same hash) are skipped. Pass `--include-superseded` to also load the historical 2021 CD BEF for point-in-time queries. Pass `--dry-run` to preview without writing anything.
 
 **3. Frontend dev server** (proxies `/api` to `localhost:8000`):
 
@@ -256,30 +195,15 @@ id, street, city, state, zip
 
 To wipe all data and start fresh (clears the database, uploaded CSVs, logs, and reports):
 
-**Docker (macOS):**
 ```bash
-./scripts/reset.sh
-```
-
-**Docker (Windows):**
-```bat
-reset.bat
-```
-
-**Without Docker:**
-```bash
-# Stop the backend server first, then:
+# Stop the backend / quit the app first, then:
 rm -f data/district_mapper.db data/district_mapper.db-shm data/district_mapper.db-wal
 find data/raw data/processed -type f ! -name '.gitkeep' -delete
 ```
 
-In all cases, BEF files in `data/bef/` are preserved — re-run the loader to repopulate the BEF tables without re-downloading:
+BEF files in `data/bef/` are preserved — re-run the loader to repopulate the BEF tables without re-downloading:
 
 ```bash
-# Docker
-docker compose exec app python scripts/load_bef.py --approved-by "Your Name"
-
-# Without Docker
 python scripts/load_bef.py --approved-by "Your Name"
 ```
 
