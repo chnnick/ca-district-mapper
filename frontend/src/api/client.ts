@@ -9,8 +9,19 @@ import type {
   UploadResponse,
 } from "../types";
 
+// In the Tauri shell, the Rust side injects window.__API_BASE__ pointing
+// at the loopback sidecar (e.g. "http://127.0.0.1:53421"). Under Docker /
+// `uvicorn`, FastAPI serves the SPA same-origin, so the empty base string
+// keeps requests at "/api/...".
+declare global {
+  interface Window {
+    __API_BASE__?: string;
+  }
+}
+const API_BASE = window.__API_BASE__ ?? "";
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`/api${path}`, init);
+  const res = await fetch(`${API_BASE}/api${path}`, init);
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(`${res.status} ${res.statusText}: ${body}`);
@@ -49,7 +60,10 @@ export function fetchDistrictStats(
 export async function uploadCSV(file: File): Promise<UploadResponse> {
   const form = new FormData();
   form.append("file", file);
-  const res = await fetch("/api/uploads", { method: "POST", body: form });
+  const res = await fetch(`${API_BASE}/api/uploads`, {
+    method: "POST",
+    body: form,
+  });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(`${res.status} ${res.statusText}: ${body}`);
@@ -86,5 +100,5 @@ export function deleteUpload(
 }
 
 export function uploadDownloadUrl(sourceFile: string): string {
-  return `/api/uploads/${encodeURIComponent(sourceFile)}/download`;
+  return `${API_BASE}/api/uploads/${encodeURIComponent(sourceFile)}/download`;
 }
