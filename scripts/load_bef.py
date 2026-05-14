@@ -26,11 +26,13 @@ from src.match import (
     verify_url_reachable,
 )
 from src.match.bef_config import load_bef_sources
+from src.paths import bef_dir as _resolve_bef_dir
+from src.paths import db_path as _resolve_db_path
 
 PROJECT_ROOT = Path(__file__).parent.parent
-DEFAULT_DB = PROJECT_ROOT / "data" / "district_mapper.db"
+DEFAULT_DB = _resolve_db_path()
 DEFAULT_CONFIG = PROJECT_ROOT / "config" / "bef_sources.yaml"
-DEFAULT_BEF_DIR = PROJECT_ROOT / "data" / "bef"
+DEFAULT_BEF_DIR = _resolve_bef_dir()
 MIGRATIONS_DIR = PROJECT_ROOT / "db" / "migrations"
 
 

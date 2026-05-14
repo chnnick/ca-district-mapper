@@ -8,6 +8,9 @@ from fastapi.staticfiles import StaticFiles
 
 from src.api.routes import jobs, map, people, reports, uploads
 from src.db import apply_migrations, get_connection
+from src.paths import bef_dir as _resolve_bef_dir
+from src.paths import db_path as _resolve_db_path
+from src.paths import raw_dir as _resolve_raw_dir
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +99,7 @@ def _auto_load_bef(db_path: str) -> None:
     )
 
     config_path = _PROJECT_ROOT / "config" / "bef_sources.yaml"
-    bef_dir = _PROJECT_ROOT / "data" / "bef"
+    bef_dir = _resolve_bef_dir()
     bef_dir.mkdir(parents=True, exist_ok=True)
 
     try:
@@ -127,11 +130,13 @@ def _auto_load_bef(db_path: str) -> None:
 
 
 def create_app(
-    db_path: str | Path = "data/district_mapper.db",
-    raw_dir: str | Path = "data/raw",
+    db_path: str | Path | None = None,
+    raw_dir: str | Path | None = None,
 ) -> FastAPI:
-    db_path = str(db_path)
-    raw_dir = str(raw_dir)
+    db_path = str(db_path) if db_path is not None else str(_resolve_db_path())
+    raw_dir = str(raw_dir) if raw_dir is not None else str(_resolve_raw_dir())
+    Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(raw_dir).mkdir(parents=True, exist_ok=True)
     migrations_dir = _PROJECT_ROOT / "db" / "migrations"
 
     @asynccontextmanager
@@ -147,6 +152,10 @@ def create_app(
     app = FastAPI(title="cal-district-mapper", lifespan=lifespan)
     app.state.db_path = db_path
     app.state.raw_dir = raw_dir
+
+    @app.get("/health")
+    def health() -> dict:
+        return {"status": "ok"}
 
     app.include_router(uploads.router, prefix="/api")
     app.include_router(jobs.router, prefix="/api")
