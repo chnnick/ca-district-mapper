@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from src.api.routes import jobs, map, people, reports, uploads
@@ -152,6 +153,16 @@ def create_app(
         yield
 
     app = FastAPI(title="cal-district-mapper", lifespan=lifespan)
+    # Tauri webview loads from tauri://localhost (or http://tauri.localhost on
+    # Windows) while the sidecar listens on http://127.0.0.1:<port>, so every
+    # request is cross-origin. The sidecar binds loopback only, so a wildcard
+    # origin policy doesn't expand the attack surface.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     app.state.db_path = db_path
     app.state.raw_dir = raw_dir
 
