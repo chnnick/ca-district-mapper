@@ -8,8 +8,10 @@ from fastapi.staticfiles import StaticFiles
 
 from src.api.routes import jobs, map, people, reports, uploads
 from src.db import apply_migrations, get_connection
+from src.paths import bef_config_path as _resolve_bef_config_path
 from src.paths import bef_dir as _resolve_bef_dir
 from src.paths import db_path as _resolve_db_path
+from src.paths import migrations_dir as _resolve_migrations_dir
 from src.paths import raw_dir as _resolve_raw_dir
 
 logger = logging.getLogger(__name__)
@@ -98,7 +100,7 @@ def _auto_load_bef(db_path: str) -> None:
         verify_url_reachable,
     )
 
-    config_path = _PROJECT_ROOT / "config" / "bef_sources.yaml"
+    config_path = _resolve_bef_config_path()
     bef_dir = _resolve_bef_dir()
     bef_dir.mkdir(parents=True, exist_ok=True)
 
@@ -137,7 +139,7 @@ def create_app(
     raw_dir = str(raw_dir) if raw_dir is not None else str(_resolve_raw_dir())
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     Path(raw_dir).mkdir(parents=True, exist_ok=True)
-    migrations_dir = _PROJECT_ROOT / "db" / "migrations"
+    migrations_dir = _resolve_migrations_dir()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):

@@ -33,3 +33,8 @@ frontend/dist/
 .vscode/
 .idea/
 *.swp
+
+# Tauri / PyInstaller build outputs
+src-tauri/target/
+src-tauri/binaries/district-mapper-backend-*
+backend-packaging/__pycache__/
